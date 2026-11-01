@@ -236,11 +236,15 @@ class RecitationPresenterImpl @Inject constructor(
 
     val activity = activity ?: return
     activity.window.decorView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-    Toast.makeText(
-      activity,
-      activity.getString(R.string.tilawa_mistake, ayah.sura, ayah.ayah, activity.getString(kindLabel(kind))),
-      Toast.LENGTH_SHORT
-    ).show()
+    val label = activity.getString(kindLabel(kind))
+    val wordText = issue.optString("word_text")
+    val text = if (kind in AYAH_LEVEL_KINDS || wordText.isEmpty()) {
+      val withText = if (wordText.isEmpty()) label else "$label („$wordText“)"
+      activity.getString(R.string.tilawa_mistake, ayah.sura, ayah.ayah, withText)
+    } else {
+      activity.getString(R.string.tilawa_mistake_word, ayah.sura, ayah.ayah, mistakes.first().word, wordText, label)
+    }
+    Toast.makeText(activity, text, Toast.LENGTH_LONG).show()
   }
 
   private fun kindLabel(kind: String): Int = when (kind) {

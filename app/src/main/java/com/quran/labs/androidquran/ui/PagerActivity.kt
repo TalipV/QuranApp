@@ -284,7 +284,10 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
       val activity = activity.get()
       if (activity != null) {
         if (msg.what == MSG_HIDE_ACTIONBAR) {
-          activity.toggleActionBarVisibility(false)
+          // QuranApp: während der Rezitation nicht automatisch ausblenden
+          if (!activity.pagerActivityRecitationPresenter.isListening()) {
+            activity.toggleActionBarVisibility(false)
+          }
         } else {
           super.handleMessage(msg)
         }
@@ -630,7 +633,11 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         { currentPage },
         { ayahToolBar },
         { ayah: SuraAyah -> ensurePage(ayah.sura, ayah.ayah) },
-        { sliderPage: Int -> showSlider(slidingPagerAdapter.getPagePosition(sliderPage)) }
+        { sliderPage: Int -> showSlider(slidingPagerAdapter.getPagePosition(sliderPage)) },
+        { isActive: Boolean ->
+          onEndSessionBackCallback.isEnabled = isActive
+          if (isActive) toggleActionBarVisibility(true)
+        }
       ))
   }
 

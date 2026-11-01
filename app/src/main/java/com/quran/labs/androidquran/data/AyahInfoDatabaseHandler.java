@@ -17,6 +17,8 @@ import com.quran.page.common.data.SuraHeaderLocation;
 import com.quran.page.common.data.coordinates.PageGlyphsCoords;
 
 import java.io.File;
+
+import timber.log.Timber;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -126,12 +128,11 @@ public class AyahInfoDatabaseHandler {
 
   @NonNull
   public AyahCoordinates getVersesBoundsForPage(int page) {
-    boolean includeGlyphData = hasGlyphData && haveGlyphData();
-    GlyphsBuilder glyphsBuilder = new GlyphsBuilder();
+    boolean includeGlyphType = hasGlyphData && haveGlyphData();
     Map<String, List<AyahBounds>> ayahBounds = new HashMap<>();
     Cursor cursor = null;
     try {
-      cursor = getVersesBoundsCursorForPage(page, includeGlyphData);
+      cursor = getVersesBoundsCursorForPage(page, includeGlyphType);
       while (cursor.moveToNext()) {
         int line = cursor.getInt(1);
         int sura = cursor.getInt(2);
@@ -141,12 +142,6 @@ public class AyahInfoDatabaseHandler {
         int minY = cursor.getInt(6);
         int maxX = cursor.getInt(7);
         int maxY = cursor.getInt(8);
-
-        if (includeGlyphData) {
-          String glyphType = cursor.getString(9);
-          RectF r = new RectF(minX, minY, maxX, maxY);
-          glyphsBuilder.append(sura, ayah, position, line, glyphType, r);
-        }
 
         String key = sura + ":" + ayah;
         List<AyahBounds> bounds = ayahBounds.get(key);
@@ -171,10 +166,71 @@ public class AyahInfoDatabaseHandler {
       DatabaseUtils.closeCursor(cursor);
     }
 
-    PageGlyphsCoords glyphCoords = includeGlyphData ?
-        new PageGlyphsCoords(page, glyphsBuilder.build()) : null;
-
+    PageGlyphsCoords glyphCoords = buildGlyphCoords(page, includeGlyphType);
     return new AyahCoordinates(page, ayahBounds, glyphCoords);
+  }
+
+  /**
+   * QuranApp: Wort-Koordinaten für die Rezitationserkennung.
+   * Liest alle Glyphen der Ayat dieser Seite (auch auf Nachbarseiten), damit die
+   * Wortnummern bei seitenübergreifenden Ayat durchgehend gezählt werden. Fehlt die
+   * Spalte glyph_type, gilt die letzte Glyphe einer Aya als Aya-Ende, alle anderen als Wörter.
+   */
+  private PageGlyphsCoords buildGlyphCoords(int page, boolean includeGlyphType) {
+    GlyphsBuilder glyphsBuilder = new GlyphsBuilder();
+    Cursor cursor = null;
+    try {
+      String ayahKey = COL_SURA + " * 1000 + " + COL_AYAH;
+      String columns = COL_PAGE + ", " + COL_LINE + ", " + COL_SURA + ", " + COL_AYAH + ", " +
+          COL_POSITION + ", " + MIN_X + ", " + MIN_Y + ", " + MAX_X + ", " + MAX_Y +
+          (includeGlyphType ? ", " + GLYPH_TYPE : "");
+      cursor = database.rawQuery("SELECT " + columns + " FROM " + GLYPHS_TABLE +
+          " WHERE " + ayahKey + " IN (SELECT " + ayahKey + " FROM " + GLYPHS_TABLE +
+          " WHERE " + COL_PAGE + " = ?) ORDER BY " + COL_SURA + ", " + COL_AYAH + ", " + COL_PAGE + ", " + COL_POSITION,
+          new String[] { String.valueOf(page) });
+
+      int count = cursor.getCount();
+      int[] pages = new int[count];
+      int[] lines = new int[count];
+      int[] suras = new int[count];
+      int[] ayahs = new int[count];
+      int[] positions = new int[count];
+      RectF[] rects = new RectF[count];
+      String[] types = new String[count];
+      int i = 0;
+      while (cursor.moveToNext()) {
+        pages[i] = cursor.getInt(0);
+        lines[i] = cursor.getInt(1);
+        suras[i] = cursor.getInt(2);
+        ayahs[i] = cursor.getInt(3);
+        positions[i] = cursor.getInt(4);
+        rects[i] = new RectF(cursor.getInt(5), cursor.getInt(6), cursor.getInt(7), cursor.getInt(8));
+        types[i] = includeGlyphType ? cursor.getString(9) : null;
+        i++;
+      }
+
+      int wordPosition = 0;
+      for (int j = 0; j < count; j++) {
+        boolean newAyah = j == 0 || suras[j] != suras[j - 1] || ayahs[j] != ayahs[j - 1];
+        if (newAyah) {
+          wordPosition = 0;
+        }
+        boolean lastOfAyah = j == count - 1 || suras[j] != suras[j + 1] || ayahs[j] != ayahs[j + 1];
+        String type = types[j] != null ? types[j] : (lastOfAyah ? GlyphsBuilder.END : GlyphsBuilder.WORD);
+        if (GlyphsBuilder.WORD.equals(type)) {
+          wordPosition++;
+        }
+        if (pages[j] == page) {
+          glyphsBuilder.append(suras[j], ayahs[j], positions[j], lines[j], type, rects[j], wordPosition);
+        }
+      }
+      return new PageGlyphsCoords(page, glyphsBuilder.build());
+    } catch (Exception e) {
+      Timber.e(e, "Wort-Koordinaten für Seite %d nicht verfügbar", page);
+      return null;
+    } finally {
+      DatabaseUtils.closeCursor(cursor);
+    }
   }
 
   private boolean haveVerseMarkerData() {

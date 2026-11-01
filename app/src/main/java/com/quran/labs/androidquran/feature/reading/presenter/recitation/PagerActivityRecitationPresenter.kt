@@ -47,6 +47,8 @@ class PagerActivityRecitationPresenter @Inject constructor(
     val ayahToolBar: () -> AyahToolBar?,
     val ensurePage: (ayah: SuraAyah) -> Unit,
     val showSlider: (sliderPage: Int) -> Unit,
+    /** QuranApp: Sitzung aktiv → Leisten zeigen, Zurück-Taste beendet die Sitzung */
+    val onSessionActiveChanged: (isActive: Boolean) -> Unit = {},
   )
 
   private fun isRecitationEnabled(): Boolean {
@@ -93,6 +95,14 @@ class PagerActivityRecitationPresenter @Inject constructor(
       .onEach { onRecitationEnabledStateChanged(it) }
       .launchIn(scope)
 
+    // QuranApp: Leisten während der Rezitation sichtbar halten
+    recitationEventPresenter.recitationSessionFlow
+      .onEach { bridge.onSessionActiveChanged(it != null) }
+      .launchIn(scope)
+    recitationEventPresenter.listeningStateFlow
+      .onEach { if (it) bridge.onSessionActiveChanged(true) }
+      .launchIn(scope)
+
     // Recitation Events
     recitationEventPresenter.recitationChangeFlow
       .onEach { onRecitationChange(it) }
@@ -113,6 +123,9 @@ class PagerActivityRecitationPresenter @Inject constructor(
       recitationPresenter.endSession()
     }
   }
+
+  /** QuranApp: verhindert automatisches Ausblenden der Leisten, solange zugehört wird. */
+  fun isListening(): Boolean = isRecitationEnabled() && recitationEventPresenter.isListening()
 
   fun onPermissionsResult(requestCode: Int, grantResults: IntArray) {
     recitationPresenter.onRequestPermissionsResult(requestCode, grantResults)

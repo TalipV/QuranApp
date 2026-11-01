@@ -2,7 +2,8 @@
 <resources>
   <color name="tilawa_ayah">#3343A047</color>
   <color name="tilawa_ayah_night">#4466BB6A</color>
-  <color name="tilawa_word">#FF1E88E5</color>
+  <color name="tilawa_word">#661E88E5</color>
+  <color name="tilawa_word_night">#7764B5F6</color>
   <color name="tilawa_mistake">#FFD32F2F</color>
   <color name="tilawa_mistake_night">#FFFF6E6E</color>
 </resources>

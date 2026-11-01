@@ -5,7 +5,8 @@
   <string name="tilawa_error">Erkennung: %1$s</string>
   <string name="tilawa_mode_correction">Modus: Mitlesen mit Fehlererkennung</string>
   <string name="tilawa_mode_tracking">Modus: nur Mitlesen</string>
-  <string name="tilawa_mistake">Möglicher Fehler (%1$d:%2$d): %3$s</string>
+  <string name="tilawa_mistake">Möglicher Fehler bei %1$d:%2$d: %3$s</string>
+  <string name="tilawa_mistake_word">Möglicher Fehler bei %1$d:%2$d, Wort %3$d „%4$s“: %5$s</string>
   <string name="tilawa_kind_omission">Wort ausgelassen</string>
   <string name="tilawa_kind_substitution">anderes Wort</string>
   <string name="tilawa_kind_vowel">Vokal (Ḥaraka)</string>

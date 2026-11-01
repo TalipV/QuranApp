@@ -326,6 +326,8 @@ class AyahTrackerPresenter @Inject constructor(
       }
     } else if (eventType == SINGLE_TAP && recitationEventPresenter.hasRecitationSession()) {
       handleTap(event, eventType, page)
+      // QuranApp: Tippen blendet auch während einer Rezitation die Leisten ein/aus
+      readingEventPresenter.onClick()
     } else {
       // normal click
       readingEventPresenter.onClick()

@@ -23,7 +23,15 @@ class GlyphsBuilder {
   private var curAyah: SuraAyah? = null
   private var nextWordPos: Int = 1
 
-  fun append(sura: Int, ayah: Int, glyphPosition: Int, line: Int, type: String, bounds: RectF) {
+  /**
+   * @param wordPosition explizite Wortnummer innerhalb der Aya (QuranApp: seitenübergreifend
+   * gezählt); -1 = wie bisher fortlaufend ab 1 pro Aya auf dieser Seite
+   */
+  @JvmOverloads
+  fun append(
+    sura: Int, ayah: Int, glyphPosition: Int, line: Int, type: String, bounds: RectF,
+    wordPosition: Int = -1
+  ) {
     val suraAyah = SuraAyah(sura, ayah)
 
     // If we're on a different ayah, reset word position to 1
@@ -37,7 +45,7 @@ class GlyphsBuilder {
       SAJDAH ->  SajdahGlyph(suraAyah, glyphPosition)
       PAUSE  ->   PauseGlyph(suraAyah, glyphPosition)
       END    -> AyahEndGlyph(suraAyah, glyphPosition)
-      WORD   ->    WordGlyph(suraAyah, glyphPosition, nextWordPos++)
+      WORD   ->    WordGlyph(suraAyah, glyphPosition, if (wordPosition > 0) wordPosition else nextWordPos++)
       else   -> throw IllegalArgumentException("Unknown glyph type $type")
     }
 
@@ -48,11 +56,11 @@ class GlyphsBuilder {
 
   // Glyph Type keys
   // Note: it's important these types match what is defined in the ayahinfo db
-  private companion object {
+  companion object {
     const val HIZB = "hizb"
     const val SAJDAH = "sajdah"
     const val PAUSE = "pause"
-    const val END = "end"
-    const val WORD = "word"
+    @JvmField val END = "end"
+    @JvmField val WORD = "word"
   }
 }

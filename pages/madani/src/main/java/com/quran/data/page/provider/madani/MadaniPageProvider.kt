@@ -29,6 +29,9 @@ class MadaniPageProvider : PageProvider {
 
   override fun getAyahInfoBaseUrl() = "$baseUrl/databases/ayahinfo/"
 
+  // QuranApp: Wort-Koordinaten laden (nutzt glyph_type, falls vorhanden; sonst Fallback)
+  override fun ayahInfoDbHasGlyphData() = true
+
   override fun getAudioDirectoryName() = "audio"
 
   override fun getDatabaseDirectoryName() = "databases"

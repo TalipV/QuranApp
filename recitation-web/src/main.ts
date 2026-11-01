@@ -35,9 +35,35 @@ function post(message: Record<string, unknown>): void {
   else console.log("[tilawa]", json);
 }
 
+interface CorpusData {
+  surahs: { ayahs: { w: string[][] }[] }[];
+}
+let corpusData: CorpusData | null = null;
+
+/** Uthmani-Text der Wörter [word, word + count) einer Aya (0-basiert, ohne Basmala). */
+function wordText(surah: number, ayah: number, word: number, count: number): string {
+  const words = corpusData?.surahs[surah - 1]?.ayahs[ayah - 1]?.w;
+  if (!words) return "";
+  return words.slice(Math.max(0, word), Math.max(0, word) + Math.max(1, count)).map((w) => w[2] ?? w[1] ?? "").join(" ");
+}
+
+interface IssueLike { surah: number; ayah: number; word: number; words?: number; kind: string; word_text?: string }
+
+/** Ergänzt Fehler-Meldungen um den betroffenen Wortlaut (für den Hinweis in der App). */
+function enrich(msg: { type: string; state?: { issue?: IssueLike | null }; issue?: IssueLike }): void {
+  const issue = msg.type === "correction" ? msg.state?.issue : msg.type === "correction_note" ? msg.issue : null;
+  if (!issue || issue.word_text) return;
+  const ayahLevel = issue.kind === "possible_skipped_ayah" || issue.kind === "unclear_ayah";
+  issue.word_text = ayahLevel
+    ? wordText(issue.surah, issue.ayah, 0, 3) + " …"
+    : wordText(issue.surah, issue.ayah, issue.word, issue.words ?? 1);
+}
+
 function forward(messages: { type: string }[]): void {
   for (const msg of messages) {
-    if (!SKIPPED_EVENTS.has(msg.type)) post({ type: "event", event: msg });
+    if (SKIPPED_EVENTS.has(msg.type)) continue;
+    enrich(msg);
+    post({ type: "event", event: msg });
   }
 }
 
@@ -133,7 +159,10 @@ async function init(): Promise<void> {
     session = await createRecognitionSession({
       ort,
       model: () => loadBuffer("model.onnx"),
-      corpus: () => loadJson("corpus.json") as never,
+      corpus: async () => {
+        corpusData = (await loadJson("corpus.json")) as CorpusData;
+        return corpusData as never;
+      },
       quran: () => loadJson("quran.json") as never,
     });
     post({ type: "ready" });
