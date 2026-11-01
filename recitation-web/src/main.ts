@@ -1,7 +1,8 @@
 /**
  * Brücke zwischen der Android-App und @tilawa/core.
  *
- * Android → JS:  window.tilawa.feed(base64Float32Le), .stop(), .reset()
+ * Android → JS:  window.tilawa.feed(base64Float32Le), .stop(), .reset(),
+ *                .configure(json)  // { mode, expected, autoContinue }
  * JS → Android:  TilawaHost.postMessage(json)
  *
  * Bewusst dünn gehalten: Updates von @tilawa/core sollen ohne Änderungen
@@ -21,6 +22,7 @@ declare global {
       feed(base64: string): void;
       stop(): void;
       reset(): void;
+      configure(json: string): void;
     };
   }
 }
@@ -62,7 +64,17 @@ async function loadBuffer(path: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
+interface BridgeConfig {
+  /** "tracking" (nur mitlesen) oder "correction" (mit Fehlererkennung) */
+  mode?: "tracking" | "correction";
+  /** Erwartete Passage, z. B. ab der Start-Aya bis Surenende */
+  expected?: { surah: number; ayah: number; ayahEnd?: number } | null;
+  /** Nach einem erkannten Fehler automatisch weiterverfolgen statt anzuhalten */
+  autoContinue?: boolean;
+}
+
 let session: RecognitionSession | null = null;
+let autoContinue = true;
 // Alle Aufrufe strikt nacheinander ausführen – feed() ist asynchron.
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -72,10 +84,30 @@ function enqueue(job: (s: RecognitionSession) => Promise<unknown> | unknown): vo
     .catch((e) => post({ type: "error", message: errorText(e) }));
 }
 
+/** Im Korrekturmodus hält Tilawa nach einem Fehler an; hier geht es direkt weiter. */
+function continueAfterError(s: RecognitionSession, messages: { type: string; state?: { phase?: string } }[]): void {
+  if (!autoContinue || !s.zipformer) return;
+  const hasError = messages.some((m) => m.type === "correction" && m.state?.phase === "error");
+  if (hasError) forward(s.zipformer.correct("review_later"));
+}
+
 window.tilawa = {
   feed(base64) {
     const chunk = decodeFloat32(base64);
-    enqueue(async (s) => forward(await s.feed(chunk)));
+    enqueue(async (s) => {
+      const messages = await s.feed(chunk);
+      forward(messages);
+      continueAfterError(s, messages);
+    });
+  },
+  configure(json) {
+    const config = JSON.parse(json) as BridgeConfig;
+    enqueue((s) => {
+      if (config.autoContinue !== undefined) autoContinue = config.autoContinue;
+      if (!s.zipformer) return;
+      if (config.expected !== undefined) s.zipformer.setExpected(config.expected);
+      if (config.mode) forward(s.zipformer.setMode(config.mode));
+    });
   },
   stop() {
     enqueue(async (s) => {

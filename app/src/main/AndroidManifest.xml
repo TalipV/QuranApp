@@ -9,7 +9,6 @@
       android:maxSdkVersion="29" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
-  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
   <!-- foreground services need this when targeting Android 9+ (Api 28+) -->
   <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -31,7 +30,7 @@
       android:banner="@mipmap/tv_banner"
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher_round"
-      android:label="@string/app_name"
+      android:label="@string/quranapp_name"
       android:name=".QuranApplication"
       android:allowBackup="true"
       android:fullBackupContent="@xml/backup"
@@ -67,10 +66,6 @@
         android:exported="false"/>
     <activity
         android:name=".ui.QuranActivity"
-        android:theme="@style/QuranToolBarDayNight"
-        android:exported="false"/>
-    <activity
-        android:name=".recitation.RecitationActivity"
         android:theme="@style/QuranToolBarDayNight"
         android:exported="false"/>
     <activity

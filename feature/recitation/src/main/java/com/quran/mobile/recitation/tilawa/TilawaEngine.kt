@@ -1,4 +1,4 @@
-package com.quran.labs.androidquran.recitation
+package com.quran.mobile.recitation.tilawa
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -9,6 +9,7 @@ import android.media.MediaRecorder
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -54,8 +55,12 @@ class TilawaEngine(context: Context, private val listener: Listener) {
   val recording: Boolean
     get() = isRecording
 
+  /**
+   * Startet die Aufnahme. [configJson] geht an `window.tilawa.configure`
+   * (Modus, erwartete Passage, Weiterlaufen nach Fehlern).
+   */
   @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-  fun startRecording() {
+  fun startRecording(configJson: String) {
     if (isRecording) return
 
     val minBuffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL, ENCODING)
@@ -73,6 +78,7 @@ class TilawaEngine(context: Context, private val listener: Listener) {
     }
 
     evaluate("window.tilawa.reset()")
+    evaluate("window.tilawa.configure(${JSONObject.quote(configJson)})")
     isRecording = true
     recorder.startRecording()
     recordThread = Thread({ recordLoop(recorder) }, "tilawa-audio").apply { start() }
@@ -88,6 +94,7 @@ class TilawaEngine(context: Context, private val listener: Listener) {
 
   fun destroy() {
     stopRecording(flush = false)
+    (webView.parent as? ViewGroup)?.removeView(webView)
     webView.removeJavascriptInterface("TilawaHost")
     webView.destroy()
   }

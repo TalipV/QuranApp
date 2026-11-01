@@ -44,7 +44,6 @@ import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
 import com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
-import com.quran.labs.androidquran.recitation.RecitationActivity
 import com.quran.labs.androidquran.service.AudioService
 import com.quran.labs.androidquran.ui.fragment.AddTagDialog
 import com.quran.labs.androidquran.ui.fragment.AddTagDialog.Companion.newInstance
@@ -358,9 +357,6 @@ class QuranActivity : AppCompatActivity(),
       }
       R.id.jump -> {
         gotoPageDialog()
-      }
-      R.id.recitation -> {
-        startActivity(Intent(this, RecitationActivity::class.java))
       }
       R.id.other_apps -> {
         val intent = Intent(Intent.ACTION_VIEW)

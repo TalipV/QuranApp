@@ -9,6 +9,8 @@ dependencies {
   implementation(project(":common:data"))
   implementation(project(":common:recitation"))
   implementation(libs.androidx.annotation)
+  implementation(libs.androidx.core.ktx)
+  implementation(libs.timber)
 
   // coroutines
   implementation(libs.kotlinx.coroutines.core)
