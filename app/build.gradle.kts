@@ -44,6 +44,8 @@ android {
   buildFeatures.resValues = true
 
   androidResources {
+    // Tilawa-Modell und WASM unkomprimiert ablegen (schnelleres Laden in der WebView)
+    noCompress += listOf("onnx", "wasm")
     // Indonesian is still in instead of id due to https://issuetracker.google.com/issues/36911507
     @Suppress("UnstableApiUsage")
     localeFilters += listOf(
