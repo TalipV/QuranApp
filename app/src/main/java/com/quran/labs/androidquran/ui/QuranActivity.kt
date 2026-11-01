@@ -1,5 +1,7 @@
 package com.quran.labs.androidquran.ui
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.content.ComponentName
 import android.content.Context
@@ -20,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -44,6 +47,7 @@ import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
 import com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
+import com.quran.mobile.recitation.tilawa.TilawaAyahFinder
 import com.quran.labs.androidquran.service.AudioService
 import com.quran.labs.androidquran.ui.fragment.AddTagDialog
 import com.quran.labs.androidquran.ui.fragment.AddTagDialog.Companion.newInstance
@@ -136,6 +140,14 @@ class QuranActivity : AppCompatActivity(),
   lateinit var quranIndexEventLogger: QuranIndexEventLogger
   @Inject
   lateinit var extraScreens: Set<@JvmSuppressWildcards ExtraScreenProvider>
+  @Inject
+  lateinit var tilawaAyahFinder: TilawaAyahFinder
+
+  // QuranApp: Mikrofon-Berechtigung für „Stelle per Rezitation finden“
+  private val requestMicrophoneForFinder =
+    registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+      if (granted) startAyahFinder()
+    }
 
   private var jumpToPageOnResume: Int? = null
 
@@ -164,11 +176,20 @@ class QuranActivity : AppCompatActivity(),
         leftMargin = insets.left
         rightMargin = insets.right
       }
+      findViewById<View>(R.id.recitation_finder).updateLayoutParams<ViewGroup.MarginLayoutParams> {
+        bottomMargin = insets.bottom + resources.getDimensionPixelSize(R.dimen.quranapp_fab_margin)
+      }
 
       // if we return WindowInsetsCompat.CONSUMED, the SnackBar won't
       // be properly positioned on Android 29 and below (will be under
       // the navigation bar).
       windowInsets
+    }
+
+    findViewById<View>(R.id.recitation_finder).setOnClickListener {
+      val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+        PackageManager.PERMISSION_GRANTED
+      if (granted) startAyahFinder() else requestMicrophoneForFinder.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     val tb = findViewById<Toolbar>(R.id.toolbar)
@@ -212,6 +233,11 @@ class QuranActivity : AppCompatActivity(),
     quranIndexEventLogger.logAnalytics()
   }
 
+  @SuppressLint("MissingPermission") // vorher geprüft bzw. gerade erteilt
+  private fun startAyahFinder() {
+    tilawaAyahFinder.start(this) { ayah -> quranNavigator.jumpTo(ayah) }
+  }
+
   public override fun onResume() {
     super.onResume()
     val isRtl = isRtl()
@@ -251,6 +277,7 @@ class QuranActivity : AppCompatActivity(),
   }
 
   override fun onDestroy() {
+    tilawaAyahFinder.release(this)
     // only set to handle Android Q memory leaks
     backStackListener?.let {
       supportFragmentManager.removeOnBackStackChangedListener(it)

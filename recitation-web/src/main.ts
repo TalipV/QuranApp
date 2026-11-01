@@ -62,6 +62,10 @@ function enrich(msg: { type: string; state?: { issue?: IssueLike | null }; issue
 function forward(messages: { type: string }[]): void {
   for (const msg of messages) {
     if (SKIPPED_EVENTS.has(msg.type)) continue;
+    for (const note of omissionNotes(msg)) {
+      enrich(note);
+      post({ type: "event", event: note });
+    }
     enrich(msg);
     post({ type: "event", event: msg });
   }
@@ -84,10 +88,29 @@ async function loadJson(path: string): Promise<unknown> {
   return res.json();
 }
 
+/** Lädt eine Datei und meldet den Fortschritt (Content-Length kommt aus der App). */
 async function loadBuffer(path: string): Promise<ArrayBuffer> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-  return res.arrayBuffer();
+  const total = Number(res.headers.get("Content-Length") ?? 0);
+  if (!res.body || !total) return res.arrayBuffer();
+
+  const reader = res.body.getReader();
+  const buffer = new Uint8Array(total);
+  let received = 0;
+  let lastPercent = -1;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer.set(value, received);
+    received += value.length;
+    const percent = Math.floor((received / total) * 100);
+    if (percent !== lastPercent) {
+      lastPercent = percent;
+      post({ type: "loading", stage: "model", percent });
+    }
+  }
+  return buffer.buffer;
 }
 
 interface BridgeConfig {
@@ -97,10 +120,61 @@ interface BridgeConfig {
   expected?: { surah: number; ayah: number; ayahEnd?: number } | null;
   /** Nach einem erkannten Fehler automatisch weiterverfolgen statt anzuhalten */
   autoContinue?: boolean;
+  /** Nicht gehörte Wörter einer Aya als Fehler melden, sobald die nächste Aya beginnt */
+  strictOmissions?: boolean;
 }
 
 let session: RecognitionSession | null = null;
 let autoContinue = true;
+let strictOmissions = true;
+
+/**
+ * Strenge Prüfung auf ausgelassene Wörter (Ergänzung zu Tilawa, das hier bewusst
+ * zurückhaltend ist): Beginnt eine spätere Aya, gelten alle Wörter der vorherigen,
+ * die nie gehört wurden, als möglicherweise ausgelassen.
+ */
+interface WordProgress { surah: number; ayah: number; total_words: number; matched_indices: number[] }
+let lastProgress: WordProgress | null = null;
+const checkedAyahs = new Set<string>();
+
+function ayahOrder(surah: number, ayah: number): number {
+  return surah * 1000 + ayah;
+}
+
+function omissionNotes(msg: { type: string; surah?: number; ayah?: number }): { type: string }[] {
+  if (msg.type !== "word_progress" && msg.type !== "verse_match") return [];
+  if (msg.surah === undefined || msg.ayah === undefined) return [];
+  const previous = lastProgress;
+  if (msg.type === "word_progress") lastProgress = msg as unknown as WordProgress;
+  if (!strictOmissions || !previous) return [];
+  if (ayahOrder(msg.surah, msg.ayah) <= ayahOrder(previous.surah, previous.ayah)) return [];
+
+  const key = `${previous.surah}:${previous.ayah}`;
+  if (checkedAyahs.has(key)) return [];
+  checkedAyahs.add(key);
+
+  const matched = new Set(previous.matched_indices);
+  const notes: { type: string }[] = [];
+  let start = -1;
+  for (let w = 0; w <= previous.total_words; w++) {
+    const missing = w < previous.total_words && !matched.has(w);
+    if (missing && start < 0) start = w;
+    if (!missing && start >= 0) {
+      notes.push({
+        type: "correction_note",
+        issue: { surah: previous.surah, ayah: previous.ayah, word: start, words: w - start,
+          kind: "possible_omission", source: "strict" },
+      } as never);
+      start = -1;
+    }
+  }
+  return notes;
+}
+
+function resetTracking(): void {
+  lastProgress = null;
+  checkedAyahs.clear();
+}
 // Alle Aufrufe strikt nacheinander ausführen – feed() ist asynchron.
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -130,6 +204,7 @@ window.tilawa = {
     const config = JSON.parse(json) as BridgeConfig;
     enqueue((s) => {
       if (config.autoContinue !== undefined) autoContinue = config.autoContinue;
+      if (config.strictOmissions !== undefined) strictOmissions = config.strictOmissions;
       if (!s.zipformer) return;
       if (config.expected !== undefined) s.zipformer.setExpected(config.expected);
       if (config.mode) forward(s.zipformer.setMode(config.mode));
@@ -139,11 +214,15 @@ window.tilawa = {
     enqueue(async (s) => {
       forward(await s.stop());
       s.reset();
+      resetTracking();
       post({ type: "stopped" });
     });
   },
   reset() {
-    enqueue((s) => s.reset());
+    enqueue((s) => {
+      s.reset();
+      resetTracking();
+    });
   },
 };
 
@@ -158,7 +237,11 @@ async function init(): Promise<void> {
     post({ type: "loading" });
     session = await createRecognitionSession({
       ort,
-      model: () => loadBuffer("model.onnx"),
+      model: async () => {
+        const buffer = await loadBuffer("model.onnx");
+        post({ type: "loading", stage: "init", percent: -1 });
+        return buffer;
+      },
       corpus: async () => {
         corpusData = (await loadJson("corpus.json")) as CorpusData;
         return corpusData as never;

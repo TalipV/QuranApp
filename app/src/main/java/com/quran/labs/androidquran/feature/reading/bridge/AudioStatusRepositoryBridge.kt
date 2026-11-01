@@ -55,6 +55,7 @@ class AudioStatusRepositoryBridge(
           AudioBarEvent.Recitation, AudioBarEvent.Record -> audioBarRecitationListener.onRecitationPressed()
           AudioBarEvent.RecitationLongPress -> audioBarRecitationListener.onRecitationLongPressed()
           AudioBarEvent.Transcript -> audioBarRecitationListener.onRecitationTranscriptPressed()
+          AudioBarEvent.ToggleRecitationMode -> audioBarRecitationListener.onRecitationModeToggled()
         }
       }
       .launchIn(scope)

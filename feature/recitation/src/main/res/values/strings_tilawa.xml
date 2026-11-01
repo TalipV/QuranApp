@@ -6,6 +6,7 @@
   <string name="tilawa_mode_correction">Modus: Mitlesen mit Fehlererkennung</string>
   <string name="tilawa_mode_tracking">Modus: nur Mitlesen</string>
   <string name="tilawa_mistake">Möglicher Fehler bei %1$d:%2$d: %3$s</string>
+  <string name="tilawa_mistake_words">Möglicher Fehler bei %1$d:%2$d, Wörter %3$d–%4$d „%5$s“: %6$s</string>
   <string name="tilawa_mistake_word">Möglicher Fehler bei %1$d:%2$d, Wort %3$d „%4$s“: %5$s</string>
   <string name="tilawa_kind_omission">Wort ausgelassen</string>
   <string name="tilawa_kind_substitution">anderes Wort</string>
@@ -13,4 +14,9 @@
   <string name="tilawa_kind_repetition">Wiederholung</string>
   <string name="tilawa_kind_skipped_ayah">Aya übersprungen</string>
   <string name="tilawa_kind_unclear_ayah">Aya nicht verständlich</string>
+  <string name="tilawa_status_loading">Erkennung lädt … %1$d %%</string>
+  <string name="tilawa_status_preparing">Erkennung wird vorbereitet …</string>
+  <string name="tilawa_finder_title">Stelle per Rezitation finden</string>
+  <string name="tilawa_finder_listening">Bereit – rezitiere jetzt eine beliebige Stelle.</string>
+  <string name="tilawa_cancel">Abbrechen</string>
 </resources>

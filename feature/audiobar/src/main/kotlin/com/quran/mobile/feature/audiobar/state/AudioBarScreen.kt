@@ -1,5 +1,7 @@
 package com.quran.mobile.feature.audiobar.state
 
+import com.quran.recitation.events.RecitationModePresenter.EngineStatus
+
 internal sealed class AudioBarState {
   sealed class ActivePlayback : AudioBarState() {
     abstract val repeat: Int
@@ -44,6 +46,14 @@ internal sealed class AudioBarState {
   data object RecitationPlaying : AudioBarState()
 
   data object RecitationStopped : AudioBarState()
+
+  /** QuranApp: eigener Rezitationsmodus (nur Rezitations-Steuerung, keine Wiedergabe) */
+  data class RecitationMode(
+    val engineStatus: EngineStatus,
+    val isListening: Boolean,
+    val isHidingAyahs: Boolean,
+    val hasSession: Boolean,
+  ) : AudioBarState()
 }
 
 internal class AudioBarUiEvents(
@@ -57,7 +67,8 @@ internal class AudioBarUiEvents(
   val commonRecordingEventSink: (AudioBarUiEvent.CommonRecordingEvent) -> Unit = {},
   val recitationListeningEventSink: (AudioBarUiEvent.RecitationListeningEvent) -> Unit = {},
   val recitationPlayingEventSink: (AudioBarUiEvent.RecitationPlayingEvent) -> Unit = {},
-  val recitationStoppedEventSink: (AudioBarUiEvent.RecitationStoppedEvent) -> Unit = {}
+  val recitationStoppedEventSink: (AudioBarUiEvent.RecitationStoppedEvent) -> Unit = {},
+  val recitationModeEventSink: (AudioBarUiEvent.RecitationModeEvent) -> Unit = {}
 )
 
 internal sealed class AudioBarUiEvent(val audioBarEvent: AudioBarEvent) {
@@ -94,6 +105,7 @@ internal sealed class AudioBarUiEvent(val audioBarEvent: AudioBarEvent) {
     data object ChangeQari : StoppedPlaybackEvent(AudioBarEvent.ChangeQari)
     data object Play : StoppedPlaybackEvent(AudioBarEvent.Play)
     data object Record : StoppedPlaybackEvent(AudioBarEvent.Record)
+    data object EnterRecitationMode : StoppedPlaybackEvent(AudioBarEvent.ToggleRecitationMode)
   }
 
   sealed class PromptEvent(audioBarEvent: AudioBarEvent) : AudioBarUiEvent(audioBarEvent) {
@@ -115,6 +127,13 @@ internal sealed class AudioBarUiEvent(val audioBarEvent: AudioBarEvent) {
   sealed class RecitationPlayingEvent(event: AudioBarEvent) : AudioBarUiEvent(event) {
     data object EndSession : RecitationPlayingEvent(AudioBarEvent.EndSession)
     data object PauseRecitation : RecitationPlayingEvent(AudioBarEvent.PauseRecitation)
+  }
+
+  sealed class RecitationModeEvent(event: AudioBarEvent) : AudioBarUiEvent(event) {
+    data object ToggleListening : RecitationModeEvent(AudioBarEvent.Recitation)
+    data object ToggleCorrection : RecitationModeEvent(AudioBarEvent.RecitationLongPress)
+    data object ToggleHideAyahs : RecitationModeEvent(AudioBarEvent.HideVerses)
+    data object ExitMode : RecitationModeEvent(AudioBarEvent.ToggleRecitationMode)
   }
 
   sealed class RecitationStoppedEvent(event: AudioBarEvent) : AudioBarUiEvent(event) {

@@ -30,8 +30,25 @@
         android:layout_height="wrap_content" />
   </LinearLayout>
 
-  <com.quran.labs.androidquran.view.QuranViewPager
-      android:id="@+id/index_pager"
+  <FrameLayout
       android:layout_width="match_parent"
-      android:layout_height="match_parent" />
+      android:layout_height="match_parent">
+
+    <com.quran.labs.androidquran.view.QuranViewPager
+        android:id="@+id/index_pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- QuranApp: Stelle per Rezitation finden -->
+    <ImageButton
+        android:id="@+id/recitation_finder"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|right"
+        android:layout_margin="16dp"
+        android:background="@drawable/bg_tilawa_fab"
+        android:contentDescription="@string/quranapp_find_by_recitation"
+        android:elevation="6dp"
+        android:src="@drawable/ic_tilawa_mic" />
+  </FrameLayout>
 </LinearLayout>

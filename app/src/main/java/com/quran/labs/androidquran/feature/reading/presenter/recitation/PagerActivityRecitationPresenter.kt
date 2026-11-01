@@ -18,6 +18,7 @@ import com.quran.labs.androidquran.ui.listener.AudioBarRecitationListener
 import com.quran.page.common.toolbar.AyahToolBar
 import com.quran.reading.common.ReadingEventPresenter
 import com.quran.recitation.events.RecitationEventPresenter
+import com.quran.recitation.events.RecitationModePresenter
 import com.quran.recitation.events.RecitationSelection
 import com.quran.recitation.presenter.RecitationPlaybackPresenter
 import com.quran.recitation.presenter.RecitationPresenter
@@ -36,6 +37,7 @@ class PagerActivityRecitationPresenter @Inject constructor(
   private val recitationEventPresenter: RecitationEventPresenter,
   private val recitationPlaybackPresenter: RecitationPlaybackPresenter,
   private val recitationSettings: RecitationSettings,
+  private val recitationModePresenter: RecitationModePresenter,
 ) : AudioBarRecitationListener, DefaultLifecycleObserver, LifecycleEventObserver {
   private val scope = MainScope()
 
@@ -49,6 +51,8 @@ class PagerActivityRecitationPresenter @Inject constructor(
     val showSlider: (sliderPage: Int) -> Unit,
     /** QuranApp: Sitzung aktiv → Leisten zeigen, Zurück-Taste beendet die Sitzung */
     val onSessionActiveChanged: (isActive: Boolean) -> Unit = {},
+    /** QuranApp: Rezitationsmodus geändert → Leisten zeigen */
+    val onRecitationModeChanged: (isActive: Boolean) -> Unit = {},
   )
 
   private fun isRecitationEnabled(): Boolean {
@@ -102,6 +106,9 @@ class PagerActivityRecitationPresenter @Inject constructor(
     recitationEventPresenter.listeningStateFlow
       .onEach { if (it) bridge.onSessionActiveChanged(true) }
       .launchIn(scope)
+    recitationModePresenter.modeFlow
+      .onEach { bridge.onRecitationModeChanged(it) }
+      .launchIn(scope)
 
     // Recitation Events
     recitationEventPresenter.recitationChangeFlow
@@ -124,8 +131,9 @@ class PagerActivityRecitationPresenter @Inject constructor(
     }
   }
 
-  /** QuranApp: verhindert automatisches Ausblenden der Leisten, solange zugehört wird. */
-  fun isListening(): Boolean = isRecitationEnabled() && recitationEventPresenter.isListening()
+  /** QuranApp: verhindert automatisches Ausblenden der Leisten im Rezitationsmodus. */
+  fun isListening(): Boolean =
+    recitationModePresenter.isModeActive() || recitationEventPresenter.isListening()
 
   fun onPermissionsResult(requestCode: Int, grantResults: IntArray) {
     recitationPresenter.onRequestPermissionsResult(requestCode, grantResults)
@@ -171,6 +179,10 @@ class PagerActivityRecitationPresenter @Inject constructor(
     } else {
       Timber.e("Transcript pressed but we don't have a session; this should never happen")
     }
+  }
+
+  override fun onRecitationModeToggled() {
+    recitationModePresenter.toggleMode()
   }
 
   override fun onHideVersesPressed() {

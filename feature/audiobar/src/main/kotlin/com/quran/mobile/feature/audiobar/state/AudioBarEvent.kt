@@ -26,4 +26,6 @@ sealed class AudioBarEvent {
   data object EndSession : AudioBarEvent()
   data object PlayRecitation : AudioBarEvent()
   data object PauseRecitation : AudioBarEvent()
+  // QuranApp: Rezitationsmodus ein/aus
+  data object ToggleRecitationMode : AudioBarEvent()
 }

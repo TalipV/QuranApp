@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.view.HapticFeedbackConstants
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -14,59 +13,77 @@ import com.quran.data.di.QuranScope
 import com.quran.data.model.SuraAyah
 import com.quran.mobile.recitation.R
 import com.quran.mobile.recitation.tilawa.TilawaEngine
+import com.quran.mobile.recitation.tilawa.TilawaEngineHolder
 import com.quran.mobile.recitation.tilawa.TilawaRecitationState
 import com.quran.recitation.common.Recitation
 import com.quran.recitation.common.RecitationSession
 import com.quran.recitation.common.RecitedAyah
 import com.quran.recitation.common.RecitedSection
 import com.quran.recitation.events.RecitationEventPresenter
+import com.quran.recitation.events.RecitationModePresenter
 import com.quran.recitation.presenter.RecitationPresenter
 import dev.zacsweers.metro.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import org.json.JSONObject
 import timber.log.Timber
 
 /**
- * Live-Rezitation mit Tilawa: Mikrofon in der Audioleiste bzw. „Ab hier rezitieren“
- * startet die Erkennung. Aya und Wort werden markiert, mögliche Fehler rot eingefärbt,
- * und die Seite blättert automatisch mit.
+ * Live-Rezitation mit Tilawa im eigenen Rezitationsmodus des Lesers.
  *
- * Langes Drücken auf das Mikrofon wechselt zwischen „Mitlesen mit Fehlererkennung“
- * und „nur Mitlesen“.
+ * Der Modus wird über die Audioleiste (unten rechts) ein- und ausgeschaltet. Beim Einschalten
+ * wird das Modell vorgeladen; das Mikrofon startet/pausiert, die Leiste zeigt den Zustand.
+ * Aya und Wort werden markiert, mögliche Fehler rot eingefärbt, die Seite blättert mit.
+ * Langes Drücken auf das Mikrofon schaltet die Fehlererkennung an/aus.
  */
 @QuranScope
 class RecitationPresenterImpl @Inject constructor(
   private val quranInfo: QuranInfo,
   private val recitationEventPresenter: RecitationEventPresenter,
+  private val modePresenter: RecitationModePresenter,
+  private val engineHolder: TilawaEngineHolder,
   private val state: TilawaRecitationState,
 ) : RecitationPresenter, TilawaEngine.Listener {
 
-  private val enabledFlow = MutableStateFlow(true)
-
   private var activity: Activity? = null
-  private var engine: TilawaEngine? = null
-  private var isEngineReady = false
+  private var scope: CoroutineScope? = null
   private var pendingStart: SuraAyah? = null
   private var session: TilawaSession? = null
   private var correctionMode = true
 
   override fun bind(what: Activity) {
     activity = what
+    engineHolder.addListener(this)
+    if (modePresenter.isModeActive()) engineHolder.obtain(what)
+
+    scope?.cancel()
+    scope = MainScope().also { scope ->
+      modePresenter.modeFlow
+        .drop(1)
+        .onEach { active -> if (active) onModeEntered() else endSession() }
+        .launchIn(scope)
+    }
   }
 
   override fun unbind(what: Activity) {
     if (activity !== what) return
     endSession()
-    engine?.destroy()
-    engine = null
-    isEngineReady = false
+    scope?.cancel()
+    scope = null
+    engineHolder.removeListener(this)
+    engineHolder.detach(what)
     activity = null
   }
 
+  /** Die Schnittstellen bleiben immer gebunden; sichtbar wird alles nur im Rezitationsmodus. */
   override fun isRecitationEnabled(): Boolean = true
 
-  override fun isRecitationEnabledFlow(): StateFlow<Boolean> = enabledFlow
+  override fun isRecitationEnabledFlow(): StateFlow<Boolean> = modePresenter.modeFlow
 
   override fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
     if (requestCode != REQUEST_RECORD_AUDIO) return
@@ -80,6 +97,8 @@ class RecitationPresenterImpl @Inject constructor(
   }
 
   override fun startOrStopRecitation(startAyah: () -> SuraAyah, showModeSelection: Boolean) {
+    if (!modePresenter.isModeActive()) modePresenter.setMode(true)
+
     if (showModeSelection) {
       correctionMode = !correctionMode
       toast(if (correctionMode) R.string.tilawa_mode_correction else R.string.tilawa_mode_tracking)
@@ -106,7 +125,7 @@ class RecitationPresenterImpl @Inject constructor(
 
   override fun endSession() {
     pendingStart = null
-    engine?.stopRecording(flush = false)
+    if (recitationEventPresenter.isListening()) engineHolder.current()?.stopRecording(flush = false)
     keepScreenOn(false)
     session = null
     state.clear()
@@ -114,7 +133,12 @@ class RecitationPresenterImpl @Inject constructor(
     recitationEventPresenter.onRecitationSessionChange(null)
   }
 
+  private fun onModeEntered() {
+    activity?.let { engineHolder.obtain(it) }
+  }
+
   private fun start(ayah: SuraAyah) {
+    val activity = activity ?: return
     if (session == null) {
       session = TilawaSession(ayah)
       state.startSession(ayah)
@@ -122,22 +146,12 @@ class RecitationPresenterImpl @Inject constructor(
     }
     recitationEventPresenter.onListeningStateChange(true)
 
-    val engine = engine ?: createEngine() ?: return
-    if (isEngineReady) {
+    val engine = engineHolder.obtain(activity)
+    if (engineHolder.isReady) {
       beginRecording(engine, ayah)
     } else {
+      // startet automatisch, sobald die Erkennung bereit ist (Fortschritt in der Leiste)
       pendingStart = ayah
-      toast(R.string.tilawa_loading)
-    }
-  }
-
-  private fun createEngine(): TilawaEngine? {
-    val activity = activity ?: return null
-    return TilawaEngine(activity, this).also { engine ->
-      // Unsichtbar ans Fenster hängen, damit die WebView nicht gedrosselt wird.
-      (activity.window.decorView as? ViewGroup)?.addView(engine.webView, ViewGroup.LayoutParams(1, 1))
-      engine.webView.alpha = 0f
-      this.engine = engine
     }
   }
 
@@ -146,6 +160,7 @@ class RecitationPresenterImpl @Inject constructor(
     val config = JSONObject()
       .put("mode", if (correctionMode) "correction" else "tracking")
       .put("autoContinue", true)
+      .put("strictOmissions", correctionMode)
       .put(
         "expected", JSONObject()
           .put("surah", ayah.sura)
@@ -162,20 +177,19 @@ class RecitationPresenterImpl @Inject constructor(
 
   private fun pauseListening() {
     pendingStart = null
-    engine?.stopRecording()
+    engineHolder.current()?.stopRecording()
     keepScreenOn(false)
     recitationEventPresenter.onListeningStateChange(false)
   }
 
-  // TilawaEngine.Listener
+  // TilawaEngine.Listener (über TilawaEngineHolder)
 
   override fun onTilawaMessage(message: JSONObject) {
     when (message.optString("type")) {
       "ready" -> {
-        isEngineReady = true
         val start = pendingStart
         pendingStart = null
-        val engine = engine
+        val engine = engineHolder.current()
         if (start != null && engine != null && recitationEventPresenter.isListening()) {
           beginRecording(engine, start)
         }
@@ -184,8 +198,10 @@ class RecitationPresenterImpl @Inject constructor(
       "error" -> {
         val error = message.optString("message")
         Timber.e("Tilawa: %s", error)
-        activity?.let {
-          Toast.makeText(it, it.getString(R.string.tilawa_error, error.lineSequence().first()), Toast.LENGTH_LONG).show()
+        if (engineHolder.isReady && session != null) {
+          activity?.let {
+            Toast.makeText(it, it.getString(R.string.tilawa_error, error.lineSequence().first()), Toast.LENGTH_LONG).show()
+          }
         }
       }
     }
@@ -232,6 +248,8 @@ class RecitationPresenterImpl @Inject constructor(
       val count = issue.optInt("words", 1).coerceAtLeast(1)
       (first until first + count).map { TilawaRecitationState.Mistake(ayah, it, kind) }
     }
+    val known = state.flow.value.mistakes.map { it.ayah to it.word }.toSet()
+    if (mistakes.all { (it.ayah to it.word) in known }) return
     state.addMistakes(mistakes)
 
     val activity = activity ?: return
@@ -241,6 +259,11 @@ class RecitationPresenterImpl @Inject constructor(
     val text = if (kind in AYAH_LEVEL_KINDS || wordText.isEmpty()) {
       val withText = if (wordText.isEmpty()) label else "$label („$wordText“)"
       activity.getString(R.string.tilawa_mistake, ayah.sura, ayah.ayah, withText)
+    } else if (mistakes.size > 1) {
+      activity.getString(
+        R.string.tilawa_mistake_words, ayah.sura, ayah.ayah,
+        mistakes.first().word, mistakes.last().word, wordText, label
+      )
     } else {
       activity.getString(R.string.tilawa_mistake_word, ayah.sura, ayah.ayah, mistakes.first().word, wordText, label)
     }

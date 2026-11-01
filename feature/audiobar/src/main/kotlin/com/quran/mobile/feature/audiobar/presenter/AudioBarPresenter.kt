@@ -17,6 +17,7 @@ import com.quran.mobile.feature.audiobar.state.AudioBarUiEvent
 import com.quran.mobile.feature.audiobar.state.AudioBarUiEvents
 import com.quran.recitation.common.RecitationSession
 import com.quran.recitation.events.RecitationEventPresenter
+import com.quran.recitation.events.RecitationModePresenter
 import com.quran.recitation.events.RecitationPlaybackEventPresenter
 import com.quran.recitation.presenter.RecitationPresenter
 import dev.zacsweers.metro.Inject
@@ -38,7 +39,8 @@ class AudioBarPresenter @Inject constructor(
   private val audioStatusRepository: AudioStatusRepository,
   private val currentQariManager: CurrentQariManager,
   private val recitationPresenter: RecitationPresenter,
-  private val audioBarEventRepository: AudioBarEventRepository
+  private val audioBarEventRepository: AudioBarEventRepository,
+  recitationModePresenter: RecitationModePresenter,
 ) {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -51,24 +53,28 @@ class AudioBarPresenter @Inject constructor(
       .onEach { internalAudioBarFlow.value = it }
       .launchIn(scope)
 
+    // QuranApp: Standard-Leiste nur außerhalb des Rezitationsmodus
     combine(
       audioStatusRepository.audioPlaybackFlow,
       currentQariManager.flow(),
-      recitationPresenter.isRecitationEnabledFlow(),
-    ) { audioStatus, qari, isRecitationEnabled ->
-      transformAudioBarState(audioStatus, isRecitationEnabled, qari)
+      recitationModePresenter.modeFlow,
+    ) { audioStatus, qari, isRecitationMode ->
+      if (isRecitationMode) null else transformAudioBarState(audioStatus, recitationPresenter.isRecitationEnabled(), qari)
     }
+      .filterNotNull()
       .onEach { internalAudioBarFlow.value = it }
       .launchIn(scope)
 
+    // QuranApp: im Rezitationsmodus nur die Rezitations-Leiste
     combine(
-      recitationPresenter.isRecitationEnabledFlow(),
-      recitationEventPresenter.recitationSessionFlow,
+      recitationModePresenter.modeFlow,
+      recitationModePresenter.engineStatusFlow,
       recitationEventPresenter.listeningStateFlow,
-      recitationPlaybackEventPresenter.playingStateFlow
-    ) { isRecitationEnabled, recitationSession, isListening, isPlaying ->
-      if (isRecitationEnabled) {
-        transformAudioBarRecitationState(recitationSession, isListening, isPlaying)
+      recitationModePresenter.hideAyahsFlow,
+      recitationEventPresenter.recitationSessionFlow,
+    ) { isRecitationMode, engineStatus, isListening, isHiding, session ->
+      if (isRecitationMode) {
+        AudioBarState.RecitationMode(engineStatus, isListening, isHiding, session != null)
       } else {
         null
       }
@@ -96,7 +102,8 @@ class AudioBarPresenter @Inject constructor(
       commonRecordingEventSink,
       recitationListeningEventSink,
       recitationPlayingEventSink,
-      recitationStoppedEventSink
+      recitationStoppedEventSink,
+      recitationModeEventSink
     )
   }
 
@@ -236,6 +243,8 @@ class AudioBarPresenter @Inject constructor(
 
   private val pausedPlaybackEvent =
     { event: AudioBarUiEvent.PausedPlaybackEvent -> emit(event.audioBarEvent) }
+  private val recitationModeEventSink =
+    { event: AudioBarUiEvent.RecitationModeEvent -> emit(event.audioBarEvent) }
   private val stoppedEventSink =
     { event: AudioBarUiEvent.StoppedPlaybackEvent -> emit(event.audioBarEvent) }
   private val commonRecordingEventSink =

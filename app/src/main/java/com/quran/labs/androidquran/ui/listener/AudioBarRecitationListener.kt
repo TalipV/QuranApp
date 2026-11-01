@@ -9,4 +9,7 @@ interface AudioBarRecitationListener {
   fun onEndRecitationSessionPressed()
   fun onPlayRecitationPressed()
   fun onPauseRecitationPressed()
+
+  /** QuranApp: Rezitationsmodus ein-/ausschalten (unten rechts in der Audioleiste) */
+  fun onRecitationModeToggled()
 }

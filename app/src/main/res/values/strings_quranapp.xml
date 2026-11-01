@@ -2,4 +2,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
   <!-- Eigener Launcher-Name, damit die App nicht mit dem Original verwechselt wird -->
   <string name="quranapp_name">QuranApp</string>
+  <string name="quranapp_find_by_recitation">Stelle per Rezitation finden</string>
 </resources>

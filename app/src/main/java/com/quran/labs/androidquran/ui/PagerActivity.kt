@@ -637,7 +637,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         { isActive: Boolean ->
           onEndSessionBackCallback.isEnabled = isActive
           if (isActive) toggleActionBarVisibility(true)
-        }
+        },
+        { isActive: Boolean -> if (isActive) toggleActionBarVisibility(true) }
       ))
   }
 

@@ -154,7 +154,12 @@ class TilawaEngine(context: Context, private val listener: Listener) {
       val path = url.path?.removePrefix("/").orEmpty()
       if (path.isEmpty() || path.contains("..")) return notFound()
       return try {
-        WebResourceResponse(mimeType(path), null, context.assets.open(path))
+        val headers = mutableMapOf<String, String>()
+        // Länge mitgeben, damit die Seite den Ladefortschritt anzeigen kann
+        // (klappt für unkomprimierte Assets wie Modell und WASM)
+        runCatching { context.assets.openFd(path).use { it.length } }
+          .getOrNull()?.takeIf { it > 0 }?.let { headers["Content-Length"] = it.toString() }
+        WebResourceResponse(mimeType(path), null, 200, "OK", headers, context.assets.open(path))
       } catch (e: IOException) {
         Timber.w(e, "Asset fehlt: %s", path)
         notFound()

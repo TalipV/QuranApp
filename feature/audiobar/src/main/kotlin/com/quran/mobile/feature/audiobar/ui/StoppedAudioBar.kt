@@ -46,8 +46,9 @@ internal fun StoppedAudioBar(
         LocalQuranColors.current.defaultTextColor)
     }
 
+    // QuranApp: unten rechts in den Rezitationsmodus wechseln
     if (state.enableRecording) {
-      IconButton(onClick = { eventSink(AudioBarUiEvent.StoppedPlaybackEvent.Record) }) {
+      IconButton(onClick = { eventSink(AudioBarUiEvent.StoppedPlaybackEvent.EnterRecitationMode) }) {
         Icon(QuranIcons.Mic, contentDescription = "")
       }
     }

@@ -6,6 +6,7 @@ import com.quran.data.model.SuraAyah
 import com.quran.data.model.highlight.HighlightInfo
 import com.quran.mobile.recitation.tilawa.TilawaHighlightTypes
 import com.quran.mobile.recitation.tilawa.TilawaRecitationState
+import com.quran.recitation.events.RecitationModePresenter
 import com.quran.recitation.presenter.RecitationHighlightsPresenter
 import com.quran.recitation.presenter.RecitationHighlightsPresenter.HighlightAction
 import com.quran.recitation.presenter.RecitationHighlightsPresenter.RecitationPage
@@ -13,6 +14,7 @@ import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.onEach
 class RecitationHighlightsPresenterImpl @Inject constructor(
   private val quranInfo: QuranInfo,
   private val state: TilawaRecitationState,
+  private val modePresenter: RecitationModePresenter,
 ) : RecitationHighlightsPresenter {
 
   private var page: RecitationPage? = null
@@ -30,7 +33,9 @@ class RecitationHighlightsPresenterImpl @Inject constructor(
     scope?.cancel()
     page = what
     scope = MainScope().also { scope ->
-      state.flow.onEach { apply(it) }.launchIn(scope)
+      combine(state.flow, modePresenter.hideAyahsFlow) { snapshot, hide -> snapshot to hide }
+        .onEach { (snapshot, hide) -> apply(snapshot, hide) }
+        .launchIn(scope)
     }
   }
 
@@ -43,10 +48,10 @@ class RecitationHighlightsPresenterImpl @Inject constructor(
   }
 
   override fun refresh() {
-    apply(state.flow.value)
+    apply(state.flow.value, modePresenter.hideAyahsFlow.value)
   }
 
-  private fun apply(snapshot: TilawaRecitationState.Snapshot) {
+  private fun apply(snapshot: TilawaRecitationState.Snapshot, hideUpcoming: Boolean) {
     val page = page ?: return
     val actions = buildList {
       TilawaHighlightTypes.all.forEach { add(HighlightAction.UnhighlightAll(it)) }
@@ -66,8 +71,10 @@ class RecitationHighlightsPresenterImpl @Inject constructor(
         ))
       }
 
-      if (snapshot.hideUpcoming) {
-        val lastRecited = snapshot.ayah ?: snapshot.sessionStart?.let { previous(it) }
+      // Ausblenden nur während einer Sitzung, sonst bliebe die Seite leer
+      val sessionStart = snapshot.sessionStart
+      if (hideUpcoming && sessionStart != null) {
+        val lastRecited = snapshot.ayah ?: previous(sessionStart)
         page.pageNumbers.forEach { pageNumber ->
           upcomingAyahsOnPage(pageNumber, lastRecited).forEach { ayah ->
             add(HighlightAction.Highlight(HighlightInfo(ayah.sura, ayah.ayah, -1, TilawaHighlightTypes.HIDDEN, false)))

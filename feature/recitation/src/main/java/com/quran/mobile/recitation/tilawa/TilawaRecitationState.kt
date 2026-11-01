@@ -21,21 +21,19 @@ class TilawaRecitationState @Inject constructor() {
   )
 
   data class Snapshot(
+    /** Startpunkt der Sitzung; null = keine Sitzung */
+    val sessionStart: SuraAyah? = null,
     val ayah: SuraAyah? = null,
     /** 1-basierte Wortposition des gerade rezitierten Wortes, -1 = unbekannt */
     val word: Int = -1,
     val mistakes: List<Mistake> = emptyList(),
-    /** Hifẓ-Modus: noch nicht rezitierte Ayat auf der Seite ausblenden */
-    val hideUpcoming: Boolean = false,
-    /** Ab hier wurde die Sitzung gestartet (für das Ausblenden vor der ersten Erkennung) */
-    val sessionStart: SuraAyah? = null,
   )
 
   private val _flow = MutableStateFlow(Snapshot())
   val flow: StateFlow<Snapshot> = _flow.asStateFlow()
 
   fun startSession(start: SuraAyah) {
-    _flow.update { Snapshot(sessionStart = start, hideUpcoming = it.hideUpcoming) }
+    _flow.value = Snapshot(sessionStart = start)
   }
 
   fun setPosition(ayah: SuraAyah, word: Int) {
@@ -51,11 +49,7 @@ class TilawaRecitationState @Inject constructor() {
     }
   }
 
-  fun toggleHideUpcoming() {
-    _flow.update { it.copy(hideUpcoming = !it.hideUpcoming) }
-  }
-
   fun clear() {
-    _flow.update { Snapshot(hideUpcoming = it.hideUpcoming) }
+    _flow.value = Snapshot()
   }
 }

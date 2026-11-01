@@ -88,6 +88,12 @@ internal fun AudioBar(
       modifier = updatedModifier
     )
 
+    is AudioBarState.RecitationMode -> RecitationModeAudioBar(
+      state = audioBarState,
+      eventSink = eventListeners.recitationModeEventSink,
+      modifier = updatedModifier
+    )
+
     is AudioBarState.Stopped -> StoppedAudioBar(
       state = audioBarState,
       modifier = updatedModifier,
