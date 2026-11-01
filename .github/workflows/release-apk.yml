@@ -62,6 +62,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # alte nummerierte Releases (build-N) aufräumen
+          gh release list --limit 100 --json tagName --jq '.[].tagName' \
+            | grep -v '^latest$' \
+            | xargs -r -n1 gh release delete --cleanup-tag --yes
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest QuranApp.apk \
             --target "$GITHUB_SHA" \
