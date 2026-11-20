@@ -26,6 +26,7 @@ Status: ✅ umgesetzt · 🧪 umgesetzt, noch nicht am Gerät bestätigt · ⏳ 
 | R4 | Modell nur einmal laden – Suren-Liste und Leser teilen sich eine Engine. | ✅ |
 | R5 | Hifẓ-Modus: noch nicht rezitierte Ayat ausblenden. | ✅ |
 | R6 | **Erkennung verbessern: Umstieg auf Tilawa 1.0.0-rc.0** (neue Engine, verfolgt Wort für Wort, Modell `lite` mit 25 MB). Die Vokalprüfung (Ḥaraka), die Erkennung von Wiederholungen und „Aya nicht verständlich“ fallen vorerst weg, weil 1.0 sie noch nicht kann. Der Inhaber hat zugestimmt, zuerst ohne sie zu testen. | 🧪 |
+| R8 | Modell `full` (68 MB) statt `lite`: Das Zielgerät (Galaxy S24 Ultra) hat genug Leistung, Genauigkeit geht vor Größe. | 🧪 |
 | R7 | Vokalprüfung (Ḥaraka) zurückholen, sobald Tilawa sie wieder unterstützt (`capabilities.unsupported` enthält derzeit `short_vowel`). | ⏳ |
 
 **Umsetzung R6:** Die Brücke (`recitation-web/src/engine.ts`) übersetzt die neuen Tilawa-Ereignisse in die
