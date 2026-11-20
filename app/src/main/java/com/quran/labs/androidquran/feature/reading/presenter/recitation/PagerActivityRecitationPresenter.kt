@@ -151,8 +151,9 @@ class PagerActivityRecitationPresenter @Inject constructor(
   }
 
   private fun onRecitationChange(ayah: SuraAyah) {
-    val curAyah = recitationEventPresenter.recitationSession()?.currentAyah() ?: ayah
-    bridge.ensurePage(curAyah)
+    // QuranApp: zur gemeldeten Aya blättern – das kann schon die nächste sein
+    // (Ende der letzten Aya einer Seite erreicht), nicht nur die aktuelle der Sitzung
+    bridge.ensurePage(ayah)
   }
 
   private fun onRecitationSelection(selection: RecitationSelection) {

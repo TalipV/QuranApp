@@ -30,6 +30,7 @@ class RecitationModePresenter @Inject constructor() {
   private val _engineStatusFlow = MutableStateFlow<EngineStatus>(EngineStatus.Idle)
   private val _hideAyahsFlow = MutableStateFlow(false)
   private val _backlogFlow = MutableStateFlow(0f)
+  private val _trackingLagFlow = MutableStateFlow(0f)
 
   val modeFlow: StateFlow<Boolean> = _modeFlow.asStateFlow()
   val engineStatusFlow: StateFlow<EngineStatus> = _engineStatusFlow.asStateFlow()
@@ -40,6 +41,16 @@ class RecitationModePresenter @Inject constructor() {
 
   fun onBacklog(seconds: Float) {
     _backlogFlow.value = seconds.coerceAtLeast(0f)
+  }
+
+  /**
+   * Sekunden hörbarer Sprache seit dem letzten erkannten Fortschritt (neues Wort / neue Aya).
+   * Wächst der Wert, kommt die Erkennung nicht mehr mit – die Leiste warnt dann.
+   */
+  val trackingLagFlow: StateFlow<Float> = _trackingLagFlow.asStateFlow()
+
+  fun onTrackingLag(seconds: Float) {
+    _trackingLagFlow.value = seconds.coerceAtLeast(0f)
   }
 
   fun isModeActive(): Boolean = modeFlow.value

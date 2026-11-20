@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,22 +57,27 @@ internal fun RecitationModeAudioBar(
       Icon(QuranIcons.MenuBook, contentDescription = stringResource(R.string.recitation_mode_hidden), tint = tint)
     }
 
+    val behind = state.isBehind()
     Column(
       modifier = Modifier
         .weight(1f)
-        .padding(horizontal = 8.dp)
+        .padding(horizontal = 4.dp)
+        .clip(RoundedCornerShape(8.dp))
+        .background(if (behind) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
+        .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
       Text(
         text = statusText(state),
-        color = LocalQuranColors.current.defaultTextColor,
+        color = if (behind) MaterialTheme.colorScheme.onErrorContainer else LocalQuranColors.current.defaultTextColor,
         style = MaterialTheme.typography.bodyMedium,
-        maxLines = 1,
+        maxLines = if (behind) 2 else 1,
         overflow = TextOverflow.Ellipsis
       )
       val status = state.engineStatus
-      if (state.isProcessingBacklog()) {
+      if (behind) {
         // Erkennung hängt hinterher: zeigen, dass noch ausgewertet wird
         LinearProgressIndicator(
+          color = MaterialTheme.colorScheme.error,
           modifier = Modifier
             .fillMaxWidth()
             .padding(top = 4.dp)
@@ -135,6 +141,8 @@ private fun statusText(state: AudioBarState.RecitationMode): String {
     EngineStatus.Ready -> when {
       state.isProcessingBacklog() ->
         stringResource(R.string.recitation_mode_processing, state.backlogSeconds.roundToInt().coerceAtLeast(1))
+      state.isLagging() ->
+        stringResource(R.string.recitation_mode_lagging, state.trackingLagSeconds.roundToInt().coerceAtLeast(1))
       state.isListening -> stringResource(R.string.recitation_mode_listening)
       state.hasSession -> stringResource(R.string.recitation_mode_paused)
       else -> stringResource(R.string.recitation_mode_ready)
@@ -147,6 +155,14 @@ private fun AudioBarState.RecitationMode.isProcessingBacklog(): Boolean =
   engineStatus == EngineStatus.Ready && backlogSeconds >= BACKLOG_VISIBLE_SECONDS
 
 private const val BACKLOG_VISIBLE_SECONDS = 0.9f
+
+/** Mehr als ~2 s gesprochen, ohne dass ein neues Wort erkannt wurde (≈ 4–6 Wörter). */
+private fun AudioBarState.RecitationMode.isLagging(): Boolean =
+  engineStatus == EngineStatus.Ready && isListening && trackingLagSeconds >= LAG_VISIBLE_SECONDS
+
+private const val LAG_VISIBLE_SECONDS = 2f
+
+private fun AudioBarState.RecitationMode.isBehind(): Boolean = isProcessingBacklog() || isLagging()
 
 @Preview
 @Composable
