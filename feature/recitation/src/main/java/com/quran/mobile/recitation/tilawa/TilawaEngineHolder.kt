@@ -65,6 +65,7 @@ class TilawaEngineHolder @Inject constructor(
     when (message.optString("type")) {
       "loading" -> modePresenter.onEngineStatus(EngineStatus.Loading(message.optInt("percent", -1)))
       "ready" -> modePresenter.onEngineStatus(EngineStatus.Ready)
+      "backlog" -> modePresenter.onBacklog(message.optDouble("seconds", 0.0).toFloat())
       "error" -> if (!isReady) {
         modePresenter.onEngineStatus(EngineStatus.Error(message.optString("message").lineSequence().first()))
       }

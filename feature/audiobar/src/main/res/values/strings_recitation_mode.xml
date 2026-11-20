@@ -5,6 +5,7 @@
   <string name="recitation_mode_ready">Bereit – Mikrofon antippen</string>
   <string name="recitation_mode_paused">Pausiert – Mikrofon zum Fortsetzen</string>
   <string name="recitation_mode_listening">Hört zu – du kannst rezitieren</string>
+  <string name="recitation_mode_processing">Wertet aus … (%1$d s im Rückstand)</string>
   <string name="recitation_mode_waiting">Startet, sobald geladen …</string>
   <string name="recitation_mode_error">Fehler: %1$s</string>
   <string name="recitation_mode_hidden">Ayat ausgeblendet</string>

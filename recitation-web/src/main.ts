@@ -59,9 +59,26 @@ function enrich(msg: { type: string; state?: { issue?: IssueLike | null }; issue
     : wordText(issue.surah, issue.ayah, issue.word, issue.words ?? 1);
 }
 
+/** Erster Treffer nach dem Fortsetzen: ab hier gilt die Passage (ohne Zwangs-Ausrichtung). */
+function applyRelocated(msg: { type: string; surah?: number; ayah?: number }): void {
+  const win = relocateWindow;
+  if (!win || !session?.zipformer) return;
+  if (msg.type !== "word_progress" && msg.type !== "verse_match") return;
+  if (msg.surah === undefined || msg.ayah === undefined) return;
+  relocateWindow = null;
+  const ayahEnd = msg.surah === win.surah
+    ? win.ayahEnd
+    : corpusData?.surahs[msg.surah - 1]?.ayahs.length;
+  const z = session.zipformer as unknown as ZipformerInternals;
+  z.setExpected({ surah: msg.surah, ayah: msg.ayah, ayahEnd });
+  // schon verfolgt – nicht noch einmal an den Aya-Anfang springen
+  if (z.engine) z.engine.expectedLocked = true;
+}
+
 function forward(messages: { type: string }[]): void {
   for (const msg of messages) {
     if (SKIPPED_EVENTS.has(msg.type)) continue;
+    applyRelocated(msg);
     for (const note of omissionNotes(msg)) {
       enrich(note);
       post({ type: "event", event: note });
@@ -122,9 +139,27 @@ interface BridgeConfig {
   autoContinue?: boolean;
   /** Nicht gehörte Wörter einer Aya als Fehler melden, sobald die nächste Aya beginnt */
   strictOmissions?: boolean;
+  /**
+   * Fortsetzen nach einer Pause: `expected` nur als Hinweis verwenden. Tilawa sucht die
+   * Stelle frei (bevorzugt in der Nähe), erst danach gilt die Passage ab der gefundenen Aya.
+   * Ohne das würde Tilawa die ersten Wörter zwingend an den Anfang von `expected` legen.
+   */
+  relocate?: boolean;
+}
+
+/** Innere Teile von @tilawa/core, die die Brücke beim Fortsetzen anfasst. */
+interface EngineInternals {
+  setHint?(hint: { surah: number; ayah: number } | null): void;
+  expectedLocked?: boolean;
+}
+interface ZipformerInternals {
+  engine?: EngineInternals;
+  setExpected(p: { surah: number; ayah: number; ayahEnd?: number } | null): void;
 }
 
 let session: RecognitionSession | null = null;
+/** Beim Fortsetzen: Passage, die erst nach dem ersten Treffer gesetzt wird. */
+let relocateWindow: { surah: number; ayah: number; ayahEnd?: number } | null = null;
 let autoContinue = true;
 let strictOmissions = true;
 
@@ -174,9 +209,25 @@ function omissionNotes(msg: { type: string; surah?: number; ayah?: number }): { 
 function resetTracking(): void {
   lastProgress = null;
   checkedAyahs.clear();
+  relocateWindow = null;
 }
 // Alle Aufrufe strikt nacheinander ausführen – feed() ist asynchron.
 let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Noch nicht ausgewertete Audio-Blöcke. Ist die Erkennung langsamer als die Aufnahme,
+ * wächst der Rückstand – die App zeigt dann „wird verarbeitet“ an.
+ */
+let pendingFeeds = 0;
+let reportedBacklog = -1;
+const CHUNK_SECONDS = 0.3;
+
+function reportBacklog(): void {
+  const seconds = Math.round(pendingFeeds * CHUNK_SECONDS * 10) / 10;
+  if (seconds === reportedBacklog) return;
+  reportedBacklog = seconds;
+  post({ type: "backlog", seconds });
+}
 
 function enqueue(job: (s: RecognitionSession) => Promise<unknown> | unknown): void {
   queue = queue
@@ -193,11 +244,19 @@ function continueAfterError(s: RecognitionSession, messages: { type: string; sta
 
 window.tilawa = {
   feed(base64) {
+    if (!session) return;
     const chunk = decodeFloat32(base64);
+    pendingFeeds++;
+    reportBacklog();
     enqueue(async (s) => {
-      const messages = await s.feed(chunk);
-      forward(messages);
-      continueAfterError(s, messages);
+      try {
+        const messages = await s.feed(chunk);
+        forward(messages);
+        continueAfterError(s, messages);
+      } finally {
+        pendingFeeds = Math.max(0, pendingFeeds - 1);
+        reportBacklog();
+      }
     });
   },
   configure(json) {
@@ -206,7 +265,18 @@ window.tilawa = {
       if (config.autoContinue !== undefined) autoContinue = config.autoContinue;
       if (config.strictOmissions !== undefined) strictOmissions = config.strictOmissions;
       if (!s.zipformer) return;
-      if (config.expected !== undefined) s.zipformer.setExpected(config.expected);
+      relocateWindow = null;
+      if (config.relocate && config.expected) {
+        // frei suchen, die letzte Stelle nur als Hinweis
+        s.zipformer.setExpected(null);
+        (s.zipformer as unknown as ZipformerInternals).engine?.setHint?.({
+          surah: config.expected.surah,
+          ayah: config.expected.ayah,
+        });
+        relocateWindow = { ...config.expected };
+      } else if (config.expected !== undefined) {
+        s.zipformer.setExpected(config.expected);
+      }
       if (config.mode) forward(s.zipformer.setMode(config.mode));
     });
   },

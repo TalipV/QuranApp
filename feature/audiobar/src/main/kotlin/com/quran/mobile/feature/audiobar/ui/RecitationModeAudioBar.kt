@@ -35,6 +35,7 @@ import com.quran.mobile.feature.audiobar.R
 import com.quran.mobile.feature.audiobar.state.AudioBarState
 import com.quran.mobile.feature.audiobar.state.AudioBarUiEvent
 import com.quran.recitation.events.RecitationModePresenter.EngineStatus
+import kotlin.math.roundToInt
 
 /**
  * QuranApp: Leiste im Rezitationsmodus.
@@ -68,7 +69,14 @@ internal fun RecitationModeAudioBar(
         overflow = TextOverflow.Ellipsis
       )
       val status = state.engineStatus
-      if (status is EngineStatus.Loading) {
+      if (state.isProcessingBacklog()) {
+        // Erkennung hängt hinterher: zeigen, dass noch ausgewertet wird
+        LinearProgressIndicator(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
+        )
+      } else if (status is EngineStatus.Loading) {
         if (status.percent >= 0) {
           LinearProgressIndicator(
             progress = { status.percent / 100f },
@@ -125,12 +133,20 @@ private fun statusText(state: AudioBarState.RecitationMode): String {
     }
     EngineStatus.Idle -> stringResource(R.string.recitation_mode_preparing)
     EngineStatus.Ready -> when {
+      state.isProcessingBacklog() ->
+        stringResource(R.string.recitation_mode_processing, state.backlogSeconds.roundToInt().coerceAtLeast(1))
       state.isListening -> stringResource(R.string.recitation_mode_listening)
       state.hasSession -> stringResource(R.string.recitation_mode_paused)
       else -> stringResource(R.string.recitation_mode_ready)
     }
   }
 }
+
+/** Ab etwa einer Sekunde Rückstand merkt man die Verzögerung – dann anzeigen. */
+private fun AudioBarState.RecitationMode.isProcessingBacklog(): Boolean =
+  engineStatus == EngineStatus.Ready && backlogSeconds >= BACKLOG_VISIBLE_SECONDS
+
+private const val BACKLOG_VISIBLE_SECONDS = 0.9f
 
 @Preview
 @Composable

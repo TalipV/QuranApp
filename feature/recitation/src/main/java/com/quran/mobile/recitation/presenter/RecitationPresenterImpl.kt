@@ -53,6 +53,8 @@ class RecitationPresenterImpl @Inject constructor(
   private var activity: Activity? = null
   private var scope: CoroutineScope? = null
   private var pendingStart: SuraAyah? = null
+  /** Fortsetzen einer laufenden Sitzung: Stelle frisch erkennen statt erzwingen. */
+  private var pendingRelocate = false
   private var session: TilawaSession? = null
   private var correctionMode = true
 
@@ -139,6 +141,9 @@ class RecitationPresenterImpl @Inject constructor(
 
   private fun start(ayah: SuraAyah) {
     val activity = activity ?: return
+    // Nach einer Pause kann man an anderer Stelle weitermachen (z. B. schon in der nächsten
+    // Aya): die letzte Aya ist dann nur ein Hinweis, nicht die erzwungene Startposition.
+    val relocate = session != null
     if (session == null) {
       session = TilawaSession(ayah)
       state.startSession(ayah)
@@ -148,19 +153,22 @@ class RecitationPresenterImpl @Inject constructor(
 
     val engine = engineHolder.obtain(activity)
     if (engineHolder.isReady) {
-      beginRecording(engine, ayah)
+      beginRecording(engine, ayah, relocate)
     } else {
       // startet automatisch, sobald die Erkennung bereit ist (Fortschritt in der Leiste)
       pendingStart = ayah
+      pendingRelocate = relocate
     }
   }
 
   @Suppress("MissingPermission") // wird in startOrStopRecitation geprüft
-  private fun beginRecording(engine: TilawaEngine, ayah: SuraAyah) {
+  private fun beginRecording(engine: TilawaEngine, ayah: SuraAyah, relocate: Boolean) {
+    modePresenter.onBacklog(0f)
     val config = JSONObject()
       .put("mode", if (correctionMode) "correction" else "tracking")
       .put("autoContinue", true)
       .put("strictOmissions", correctionMode)
+      .put("relocate", relocate)
       .put(
         "expected", JSONObject()
           .put("surah", ayah.sura)
@@ -191,7 +199,7 @@ class RecitationPresenterImpl @Inject constructor(
         pendingStart = null
         val engine = engineHolder.current()
         if (start != null && engine != null && recitationEventPresenter.isListening()) {
-          beginRecording(engine, start)
+          beginRecording(engine, start, pendingRelocate)
         }
       }
       "event" -> onTilawaEvent(message.getJSONObject("event"))

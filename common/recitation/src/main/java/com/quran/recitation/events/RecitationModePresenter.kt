@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * - [modeFlow]: Rezitationsmodus im Leser aktiv (Audioleiste zeigt nur Rezitations-Steuerung)
  * - [engineStatusFlow]: Ladezustand der Erkennung (für Fortschrittsanzeige)
  * - [hideAyahsFlow]: Hifẓ-Modus – noch nicht rezitierte Ayat ausblenden
+ * - [backlogFlow]: Verarbeitungsrückstand der Erkennung (für „wird verarbeitet“)
  */
 @SingleIn(AppScope::class)
 class RecitationModePresenter @Inject constructor() {
@@ -28,10 +29,18 @@ class RecitationModePresenter @Inject constructor() {
   private val _modeFlow = MutableStateFlow(false)
   private val _engineStatusFlow = MutableStateFlow<EngineStatus>(EngineStatus.Idle)
   private val _hideAyahsFlow = MutableStateFlow(false)
+  private val _backlogFlow = MutableStateFlow(0f)
 
   val modeFlow: StateFlow<Boolean> = _modeFlow.asStateFlow()
   val engineStatusFlow: StateFlow<EngineStatus> = _engineStatusFlow.asStateFlow()
   val hideAyahsFlow: StateFlow<Boolean> = _hideAyahsFlow.asStateFlow()
+
+  /** Sekunden Audio, die die Erkennung noch nicht ausgewertet hat (0 = hält Schritt). */
+  val backlogFlow: StateFlow<Float> = _backlogFlow.asStateFlow()
+
+  fun onBacklog(seconds: Float) {
+    _backlogFlow.value = seconds.coerceAtLeast(0f)
+  }
 
   fun isModeActive(): Boolean = modeFlow.value
 

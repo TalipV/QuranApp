@@ -53,6 +53,8 @@ internal sealed class AudioBarState {
     val isListening: Boolean,
     val isHidingAyahs: Boolean,
     val hasSession: Boolean,
+    /** Sekunden Audio, die die Erkennung noch auswerten muss */
+    val backlogSeconds: Float = 0f,
   ) : AudioBarState()
 }
 

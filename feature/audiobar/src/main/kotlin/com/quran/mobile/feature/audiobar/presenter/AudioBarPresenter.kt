@@ -79,6 +79,9 @@ class AudioBarPresenter @Inject constructor(
         null
       }
     }
+      .combine(recitationModePresenter.backlogFlow) { state, backlog ->
+        state?.copy(backlogSeconds = backlog)
+      }
       .filterNotNull()
       .onEach { internalAudioBarFlow.value = it }
       .launchIn(scope)
