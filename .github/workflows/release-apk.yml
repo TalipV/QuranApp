@@ -60,13 +60,28 @@ jobs:
           command -v ffmpeg || timeout 120 sh -c 'sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg' || echo "ffmpeg nicht installiert"
           timeout 300 npm run smoke
 
+      # APP_VERSION ist die Anzeige-Version aus app/build.gradle.kts; die Build-Nummer wird zum
+      # Android-versionCode (4000 + Nummer), so zählt jeder Build hoch und installiert als Update.
+      - name: Build info
+        run: |
+          # Build-Start, deutsche Zeit (MEZ/MESZ)
+          echo "BUILD_DATE=$(TZ=Europe/Berlin date "+%Y-%m-%d %H:%M %Z")" >> "$GITHUB_ENV"
+          version=$(sed -n 's/^ *versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          if [ -z "$version" ]; then echo "::error::versionName nicht in app/build.gradle.kts gefunden."; exit 1; fi
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$((4000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
       - name: Build release APK
-        run: ./gradlew assembleMadaniRelease -PdisableFirebase
+        run: ./gradlew assembleMadaniRelease -PdisableFirebase -PappVersionCode="$VERSION_CODE"
 
-      - name: Prepare APK
-        run: cp app/build/outputs/apk/madani/release/app-madani-release.apk QuranApp.apk
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/madani/release/app-madani-release.apk "out/QuranApp-${APP_VERSION}.apk"
+          ls -lh out
 
-      # Nur ein Release mit festem Namen: alter wird ersetzt, Link bleibt gleich
+      # Das feste Release „latest“ wird bei jedem Build neu angelegt: Link bleibt gleich,
+      # alte Assets und das alte Tag verschwinden.
       - name: Replace release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -76,8 +91,13 @@ jobs:
             | grep -v '^latest$' \
             | xargs -r -n1 gh release delete --cleanup-tag --yes
           gh release delete latest --cleanup-tag --yes || true
-          gh release create latest QuranApp.apk \
+          gh release create latest out/*.apk \
             --target "$GITHUB_SHA" \
-            --title "QuranApp" \
-            --notes "Build ${{ github.run_number }} · $(git log -1 --pretty=format:'%h %s')" \
-            --latest
+            --title "${APP_VERSION} (Build ${{ github.run_number }}, ${BUILD_DATE})" \
+            --prerelease \
+            --notes "Automatischer Build von \`main\` — Commit ${GITHUB_SHA}
+          Version: ${APP_VERSION} (Build ${{ github.run_number }})
+          Stand: ${BUILD_DATE}
+
+          Fester Link auf diese Seite (zeigt immer den neuesten Build):
+          https://github.com/${GITHUB_REPOSITORY}/releases/tag/latest"

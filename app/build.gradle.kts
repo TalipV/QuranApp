@@ -36,8 +36,11 @@ android {
   namespace = "com.quran.labs.androidquran"
 
   defaultConfig {
-    versionCode = 3650
-    versionName = "3.6.5"
+    // QuranApp-Versionen (siehe „Versionierung“ in CLAUDE.md): versionName wird von Hand erhöht.
+    // versionCode setzt das CI über -PappVersionCode (4000 + Build-Nummer); 3650 nur für lokale Builds.
+    // Der Abstand zu 4000 hält ihn über dem alten 3650, damit die APK als Update installiert.
+    versionCode = (findProperty("appVersionCode") as String?)?.toInt() ?: 3650
+    versionName = "0.1.0"
     testInstrumentationRunner = "com.quran.labs.androidquran.core.QuranTestRunner"
   }
 

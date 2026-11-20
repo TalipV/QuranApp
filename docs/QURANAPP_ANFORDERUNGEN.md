@@ -14,6 +14,7 @@ Status: ✅ umgesetzt · 🧪 umgesetzt, noch nicht am Gerät bestätigt · ⏳ 
 |---|--------|--------|
 | A1 | Änderungen direkt auf `main`; jede Änderung baut automatisch eine APK. | ✅ |
 | A2 | Immer derselbe Link mit der aktuellen APK (Release `latest`, alte Releases werden entfernt). | ✅ |
+| A4 | Versionsnummern und APK-Namen wie bei PrayerTimeEngine: eigene Version `0.x.y` (von Claude pro Push erhöht), versionCode aus der Build-Nummer, APK `QuranApp-<Version>.apk`, Release-Titel `<Version> (Build N, Datum)`. Regeln in `CLAUDE.md`. | ✅ |
 | A3 | Eigene App-ID/eigener Name („QuranApp“), damit die App neben dem Original installierbar ist. | ✅ |
 
 ## Rezitationserkennung allgemein (Tilawa, offline)
