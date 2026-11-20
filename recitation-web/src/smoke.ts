@@ -59,12 +59,12 @@ async function loadRecitation(): Promise<Float32Array | null> {
   try {
     const parts: Buffer[] = [];
     for (const ayah of AYAHS) {
-      const res = await fetch(`https://everyayah.com/data/Alafasy_128kbps/${ayah}.mp3`);
+      const res = await fetch(`https://everyayah.com/data/Alafasy_128kbps/${ayah}.mp3`, { signal: AbortSignal.timeout(30_000) });
       if (!res.ok) throw new Error(`everyayah ${ayah}: HTTP ${res.status}`);
       const mp3 = Buffer.from(await res.arrayBuffer());
       parts.push(execFileSync("ffmpeg", [
         "-loglevel", "error", "-i", "pipe:0", "-f", "f32le", "-ac", "1", "-ar", "16000", "pipe:1",
-      ], { input: mp3, maxBuffer: 64 * 1024 * 1024 }));
+      ], { input: mp3, maxBuffer: 64 * 1024 * 1024, timeout: 60_000 }));
     }
     for (const p of parts) ayahLengths.push(p.byteLength / 4);
     const all = Buffer.concat(parts);
