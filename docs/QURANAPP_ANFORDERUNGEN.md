@@ -25,6 +25,16 @@ Status: ✅ umgesetzt · 🧪 umgesetzt, noch nicht am Gerät bestätigt · ⏳ 
 | R3 | Ladefortschritt des Modells sichtbar (Prozent); Start während des Ladens wird nachgeholt. | ✅ |
 | R4 | Modell nur einmal laden – Suren-Liste und Leser teilen sich eine Engine. | ✅ |
 | R5 | Hifẓ-Modus: noch nicht rezitierte Ayat ausblenden. | ✅ |
+| R6 | **Erkennung verbessern: Umstieg auf Tilawa 1.0.0-rc.0** (neue Engine, verfolgt Wort für Wort, Modell `lite` mit 25 MB). Die Vokalprüfung (Ḥaraka), die Erkennung von Wiederholungen und „Aya nicht verständlich“ fallen vorerst weg, weil 1.0 sie noch nicht kann. Der Inhaber hat zugestimmt, zuerst ohne sie zu testen. | 🧪 |
+| R7 | Vokalprüfung (Ḥaraka) zurückholen, sobald Tilawa sie wieder unterstützt (`capabilities.unsupported` enthält derzeit `short_vowel`). | ⏳ |
+
+**Umsetzung R6:** Die Brücke (`recitation-web/src/engine.ts`) übersetzt die neuen Tilawa-Ereignisse in die
+bisherigen Nachrichten der App. Die Android-Seite bleibt dadurch fast unverändert.
+- Korrekturmodus: `startMemorization` (Passage ab Start-Aya bis Surenende).
+- Nur Mitlesen und „Stelle finden“: `startFreeRecitation`.
+- Fehler gelten als bestätigt, sobald das nächste Wort beginnt.
+- Fehler vor der ersten sicher erkannten Stelle werden verworfen. Damit gilt auch K3 (Fortsetzen nach Pause).
+- `npm run smoke` prüft das alles im CI mit echtem Modell und echter Rezitation.
 
 ## Korrekturmodus (Fehlererkennung)
 
@@ -36,10 +46,9 @@ Status: ✅ umgesetzt · 🧪 umgesetzt, noch nicht am Gerät bestätigt · ⏳ 
 | K4 | **Sichtbar machen, wenn die Auswertung hinterherhängt:** Wenn die Erkennung nicht mitkommt, muss das klar angezeigt werden (Text + Animation), statt still auf einem Wort zu verharren und später viele Wörter weiterzuspringen. | 🧪 |
 | K5 | **Automatisch umblättern** am Ende der letzten Aya einer Seite – nicht erst, wenn die nächste Aya erkannt ist. | 🧪 |
 
-**Umsetzung K3:** Die App schickt beim Fortsetzen `relocate: true`. Die Brücke
-(`recitation-web/src/main.ts`) setzt dann keine erwartete Passage, sondern nur einen Suchhinweis
-(`engine.setHint`). Erst beim ersten Treffer gilt die Passage ab der gefundenen Aya bis zum Surenende.
-Die ersten Wörter, die zum Wiederfinden nötig sind, werden dabei nicht auf Fehler geprüft.
+**Umsetzung K3:** Seit Tilawa 1.x (R6) gilt: Fehler vor der ersten sicher erkannten Stelle einer Sitzung
+werden verworfen. Wer nach einer Pause schon in der nächsten Aya weiterliest, bekommt also keinen
+Fehler für die Wörter davor.
 
 **Umsetzung K4:** Es gibt zwei Signale. Beide färben den Status in der Rezitationsleiste rot und
 zeigen einen laufenden Balken:

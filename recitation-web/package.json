@@ -5,13 +5,15 @@
   "type": "module",
   "description": "Tilawa (WebView) Bridge für QuranApp",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "smoke": "esbuild src/smoke.ts --bundle --platform=node --format=esm --target=node20 --external:onnxruntime-node --outfile=.cache/smoke.mjs --log-level=warning && node .cache/smoke.mjs"
   },
   "dependencies": {
-    "@tilawa/core": "^0.4.0",
+    "@tilawa/core": "1.0.0-rc.0",
     "onnxruntime-web": "1.24.2"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "onnxruntime-node": "1.24.2"
   }
 }

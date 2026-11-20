@@ -331,6 +331,8 @@ class RecitationPresenterImpl @Inject constructor(
     "possible_vowel" -> R.string.tilawa_kind_vowel
     "possible_repetition" -> R.string.tilawa_kind_repetition
     "possible_skipped_ayah" -> R.string.tilawa_kind_skipped_ayah
+    "possible_addition" -> R.string.tilawa_kind_addition
+    "possible_skipped_passage" -> R.string.tilawa_kind_skipped_passage
     else -> R.string.tilawa_kind_unclear_ayah
   }
 

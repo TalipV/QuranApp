@@ -1,7 +1,8 @@
 // Baut die Tilawa-WebView-Seite nach app/src/main/assets/recitation/
-// und lädt Modell + Korpus (NPL-1.2) herunter, falls noch nicht vorhanden.
+// und lädt das Tilawa-Modell herunter (gecacht in .cache/, geprüft per sha256).
 import { build } from "esbuild";
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,17 +28,30 @@ await copyFile(
   join(out, "ort-wasm-simd-threaded.wasm"),
 );
 
-const assets = JSON.parse(await readFile(join(here, "assets.json"), "utf8"));
-for (const [name, url] of Object.entries(assets)) {
-  // Cache-Dateiname enthält die URL, damit eine neue URL in assets.json neu lädt
-  const cached = join(cache, Buffer.from(url).toString("base64url").slice(-60) + "-" + name);
-  const exists = await stat(cached).then(() => true, () => false);
-  if (!exists) {
-    console.log(`Lade ${name} …`);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-    await writeFile(cached, Buffer.from(await res.arrayBuffer()));
-  }
-  await copyFile(cached, join(out, name));
+// Modell (Stufe aus src/model.json) von tilawa.dev, geprüft gegen die sha256 der Tilawa-Registry
+const { MODEL_REGISTRY, DEFAULTS } = await import("@tilawa/core");
+const { tier: tierName } = JSON.parse(await readFile(join(here, "src", "model.json"), "utf8"));
+const tier = MODEL_REGISTRY.tiers.find((t) => t.tier === tierName);
+if (!tier) throw new Error(`Unbekannte Modellstufe: ${tierName}`);
+const modelUrl = `${DEFAULTS.assetBase}${tier.base}${tier.manifest.file ?? "model.onnx"}`;
+const cached = join(cache, `${tier.id}-${tier.version}.onnx`);
+const valid = async () => {
+  const bytes = await readFile(cached).catch(() => null);
+  return bytes !== null && createHash("sha256").update(bytes).digest("hex") === tier.sha256;
+};
+if (!(await valid())) {
+  console.log(`Lade Modell ${tier.id}@${tier.version} (${(tier.bytes / 1e6).toFixed(0)} MB) …`);
+  const res = await fetch(modelUrl);
+  if (!res.ok) throw new Error(`${modelUrl}: HTTP ${res.status}`);
+  await writeFile(cached, Buffer.from(await res.arrayBuffer()));
+  if (!(await valid())) throw new Error(`${modelUrl}: sha256 stimmt nicht`);
 }
+await copyFile(cached, join(out, "model.onnx"));
+
+// Quran-Referenz liegt im npm-Paket
+await copyFile(join(here, "node_modules", "@tilawa", "core", "assets", "ref-v2.json"), join(out, "ref-v2.json"));
+
+// Reste der 0.x-Version entfernen
+for (const old of ["corpus.json", "quran.json"]) await rm(join(out, old), { force: true });
+
 console.log(`Fertig: ${out}`);

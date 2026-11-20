@@ -1,5 +1,0 @@
-{
-  "model.onnx": "https://github.com/yazinsai/tilawa/releases/download/zipformer-a0w-ep1-a0.5/zipformer_a0w_ep1_a05.int8.onnx",
-  "corpus.json": "https://github.com/yazinsai/tilawa/releases/download/v0.3.0/zipformer_quran.json",
-  "quran.json": "https://github.com/yazinsai/tilawa/releases/download/v0.2.0/quran.json"
-}
