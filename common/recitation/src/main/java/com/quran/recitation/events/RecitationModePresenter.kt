@@ -1,6 +1,7 @@
 package com.quran.recitation.events
 
 import com.quran.data.di.AppScope
+import com.quran.data.model.SuraAyah
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,7 @@ class RecitationModePresenter @Inject constructor() {
   private val _engineStatusFlow = MutableStateFlow<EngineStatus>(EngineStatus.Idle)
   private val _hideAyahsFlow = MutableStateFlow(false)
   private val _backlogFlow = MutableStateFlow(0f)
-  private val _trackingLagFlow = MutableStateFlow(0f)
+  private var autoStart: SuraAyah? = null
 
   val modeFlow: StateFlow<Boolean> = _modeFlow.asStateFlow()
   val engineStatusFlow: StateFlow<EngineStatus> = _engineStatusFlow.asStateFlow()
@@ -44,14 +45,15 @@ class RecitationModePresenter @Inject constructor() {
   }
 
   /**
-   * Sekunden hörbarer Sprache seit dem letzten erkannten Fortschritt (neues Wort / neue Aya).
-   * Wächst der Wert, kommt die Erkennung nicht mehr mit – die Leiste warnt dann.
+   * „Stelle per Rezitation finden“ hat [ayah] erkannt: Der Leser soll beim Öffnen sofort den
+   * Rezitationsmodus starten und ab dort mitverfolgen.
    */
-  val trackingLagFlow: StateFlow<Float> = _trackingLagFlow.asStateFlow()
-
-  fun onTrackingLag(seconds: Float) {
-    _trackingLagFlow.value = seconds.coerceAtLeast(0f)
+  fun requestAutoStart(ayah: SuraAyah) {
+    autoStart = ayah
   }
+
+  /** Liefert die angeforderte Start-Aya einmalig (danach null). */
+  fun consumeAutoStart(): SuraAyah? = autoStart.also { autoStart = null }
 
   fun isModeActive(): Boolean = modeFlow.value
 

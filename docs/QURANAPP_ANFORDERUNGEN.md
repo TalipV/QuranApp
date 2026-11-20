@@ -44,6 +44,7 @@ bisherigen Nachrichten der App. Die Android-Seite bleibt dadurch fast unverände
 | K1 | Fehler rot markieren; Hinweis nennt Aya, Wortposition und den Wortlaut. | ✅ |
 | K2 | Strenge Prüfung: nicht gehörte Wörter einer Aya als „Wort ausgelassen“ melden. | ✅ |
 | K3 | **Nach Pause frisch erkennen:** Beim Fortsetzen nicht blind die zuletzt erkannte Aya erwarten. Die Stelle wird neu gesucht (die letzte Aya ist nur ein Hinweis); kein Fehler, nur weil man schon in der nächsten Aya weiterliest. | 🧪 |
+| K6 | **Einleitung nicht als Quranstelle nehmen:** Aʿūḏu billāhi mina š-šayṭāni r-raǧīm und die Basmala vor der Rezitation dürfen weder im Korrekturmodus noch bei „Stelle finden“ als gesuchte Stelle gelten. (Vorher wurde aʿūḏu billāh als 2:67 erkannt.) | 🧪 |
 | K4 | **Sichtbar machen, wenn die Auswertung hinterherhängt:** Wenn die Erkennung nicht mitkommt, muss das klar angezeigt werden (Text + Animation), statt still auf einem Wort zu verharren und später viele Wörter weiterzuspringen. | 🧪 |
 | K5 | **Automatisch umblättern** am Ende der letzten Aya einer Seite – nicht erst, wenn die nächste Aya erkannt ist. | 🧪 |
 
@@ -51,12 +52,20 @@ bisherigen Nachrichten der App. Die Android-Seite bleibt dadurch fast unverände
 werden verworfen. Wer nach einer Pause schon in der nächsten Aya weiterliest, bekommt also keinen
 Fehler für die Wörter davor.
 
-**Umsetzung K4:** Es gibt zwei Signale. Beide färben den Status in der Rezitationsleiste rot und
-zeigen einen laufenden Balken:
-- *Rückstand:* Die Brücke meldet, wie viele Sekunden Audio noch nicht ausgewertet sind
-  (`{type:"backlog"}`). Ab ~1 s erscheint „Wertet aus … (n s im Rückstand)“.
-- *Kein Fortschritt:* Die App zählt hörbare Sprache (Mikrofonpegel) seit dem letzten neu erkannten
-  Wort. Ab ~2 s (≈ 4–6 Wörter) erscheint „Kommt nicht mit – seit n s Rezitation kein Wort erkannt“.
+**Umsetzung K4:** Die Brücke meldet, wie viele Sekunden Audio noch nicht ausgewertet sind
+(`{type:"backlog"}`). Ab ~1 s Rückstand wird der Status in der Rezitationsleiste rot, mit laufendem
+Balken und „Wertet aus … (n s im Rückstand)“.
+Die frühere Warnung „Kommt nicht mit – seit n s kein Wort erkannt“ ist **entfernt**. Sie sprang auch
+bei Stille bzw. Hintergrundgeräuschen an, und mit Tilawa 1.x ist sie laut Inhaber nicht mehr nötig.
+
+**Umsetzung K6** (`recitation-web/src/engine.ts`):
+- *Stelle finden / nur Mitlesen:* Eine neue Stelle zählt erst, wenn die Rezitation dort sicher
+  2 Wörter fortlaufend weitergeht. Danach gilt sie rückwirkend ab ihrem Beginn. Einleitungen gehen
+  nie in 2:67 bzw. 1:1 weiter und werden so nie bestätigt.
+- *Korrekturmodus:* Es zählen nur Stellen innerhalb der Passage.
+- Getestet mit echter Rezitation (aʿūḏu + Basmala + Yā-Sīn, Basmala + Al-Baqara) in `npm run smoke`.
+- Bekannte Grenze: Einzelbuchstaben-Ayat wie 36:1 „Yā-Sīn“ oder 2:1 „Alif-Lām-Mīm“ erkennt Tilawa
+  allein nicht. Die Stelle wird dann ab der folgenden Aya erkannt.
 
 **Umsetzung K5:** Erreicht `word_progress` das letzte Wort einer Aya und liegt die nächste Aya auf
 einer anderen Seite, wird sofort zu dieser Seite geblättert.
@@ -67,4 +76,5 @@ Offen bleibt: Ayat, die selbst über einen Seitenumbruch gehen, blättern erst m
 | # | Wunsch | Status |
 |---|--------|--------|
 | F1 | Mikrofon-Knopf in der Suren-Liste: rezitierte Stelle erkennen und dorthin springen. | ✅ |
+| F3 | **Nach „Stelle finden“ direkt weitermachen:** Nach dem Sprung zur gefundenen Stelle startet sofort der Rezitationsmodus (mit Korrektur) ab dieser Aya und verfolgt Wort für Wort weiter. | 🧪 |
 | F2 | **Sichtbares Feedback im Dialog:** Es muss klar sein, wann er bereit ist zuzuhören, wann er Sprache aufnimmt und wann er sie verarbeitet. Gelöst mit einem animierten Mikrofon: grau = lädt, Pulsieren = bereit, Ringe nach Lautstärke = hört zu, drehender Bogen + Balken = wertet aus, grünes Häkchen = gefunden. Dazu Statustext und die vermutete Stelle. | 🧪 |

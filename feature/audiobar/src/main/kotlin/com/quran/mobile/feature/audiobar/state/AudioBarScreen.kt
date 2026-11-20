@@ -55,8 +55,6 @@ internal sealed class AudioBarState {
     val hasSession: Boolean,
     /** Sekunden Audio, die die Erkennung noch auswerten muss */
     val backlogSeconds: Float = 0f,
-    /** Sekunden Sprache seit dem letzten erkannten Wort */
-    val trackingLagSeconds: Float = 0f,
   ) : AudioBarState()
 }
 

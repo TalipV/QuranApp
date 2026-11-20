@@ -58,8 +58,6 @@ class RecitationPresenterImpl @Inject constructor(
   private var session: TilawaSession? = null
   private var correctionMode = true
 
-  /** Hörbare Sprache (ms) seit dem letzten erkannten Fortschritt – für die „kommt nicht mit“-Warnung. */
-  private var speechSinceAdvanceMs = 0L
   /** Aya, zu deren Folgeseite schon geblättert wurde (Ende der letzten Aya einer Seite). */
   private var turnedPageAfter: SuraAyah? = null
 
@@ -74,6 +72,17 @@ class RecitationPresenterImpl @Inject constructor(
         .drop(1)
         .onEach { active -> if (active) onModeEntered() else endSession() }
         .launchIn(scope)
+    }
+
+    // „Stelle per Rezitation finden“ (Startseite) hat hierher gesprungen: direkt weiter mitverfolgen.
+    // Die Mikrofon-Berechtigung hat der Finder schon eingeholt.
+    modePresenter.consumeAutoStart()?.let { ayah ->
+      if (!modePresenter.isModeActive()) modePresenter.setMode(true)
+      if (ContextCompat.checkSelfPermission(what, Manifest.permission.RECORD_AUDIO) ==
+        PackageManager.PERMISSION_GRANTED
+      ) {
+        start(ayah)
+      }
     }
   }
 
@@ -132,7 +141,6 @@ class RecitationPresenterImpl @Inject constructor(
 
   override fun endSession() {
     pendingStart = null
-    resetLag()
     turnedPageAfter = null
     if (recitationEventPresenter.isListening()) engineHolder.current()?.stopRecording(flush = false)
     keepScreenOn(false)
@@ -171,7 +179,6 @@ class RecitationPresenterImpl @Inject constructor(
   @Suppress("MissingPermission") // wird in startOrStopRecitation geprüft
   private fun beginRecording(engine: TilawaEngine, ayah: SuraAyah, relocate: Boolean) {
     modePresenter.onBacklog(0f)
-    resetLag()
     val config = JSONObject()
       .put("mode", if (correctionMode) "correction" else "tracking")
       .put("autoContinue", true)
@@ -193,7 +200,6 @@ class RecitationPresenterImpl @Inject constructor(
 
   private fun pauseListening() {
     pendingStart = null
-    resetLag()
     engineHolder.current()?.stopRecording()
     keepScreenOn(false)
     recitationEventPresenter.onListeningStateChange(false)
@@ -212,7 +218,6 @@ class RecitationPresenterImpl @Inject constructor(
         }
       }
       "event" -> onTilawaEvent(message.getJSONObject("event"))
-      "level" -> onLevel(message.optDouble("rms", 0.0).toFloat())
       "error" -> {
         val error = message.optString("message")
         Timber.e("Tilawa: %s", error)
@@ -252,7 +257,6 @@ class RecitationPresenterImpl @Inject constructor(
   private fun onPosition(ayah: SuraAyah, word: Int) {
     val before = state.flow.value
     val changedAyah = before.ayah != ayah
-    if (changedAyah || (word > 0 && before.word != word)) resetLag()
     state.setPosition(ayah, word)
     if (changedAyah) {
       session?.onAyah(ayah)
@@ -278,19 +282,6 @@ class RecitationPresenterImpl @Inject constructor(
       turnedPageAfter = ayah
       recitationEventPresenter.onRecitationChange(next)
     }
-  }
-
-  /** Mikrofonpegel alle 100 ms: zählt Sprache, solange die Erkennung nicht weiterkommt. */
-  private fun onLevel(rms: Float) {
-    if (!recitationEventPresenter.isListening() || session == null) return
-    if (rms < SPEECH_RMS) return
-    speechSinceAdvanceMs += LEVEL_INTERVAL_MS
-    modePresenter.onTrackingLag(speechSinceAdvanceMs / 1000f)
-  }
-
-  private fun resetLag() {
-    speechSinceAdvanceMs = 0L
-    modePresenter.onTrackingLag(0f)
   }
 
   private fun onIssue(issue: JSONObject) {
@@ -375,9 +366,6 @@ class RecitationPresenterImpl @Inject constructor(
 
   private companion object {
     const val REQUEST_RECORD_AUDIO = 4_711
-    /** Etwas über Tilawas Stille-Schwelle, damit Rauschen nicht als Sprache zählt. */
-    const val SPEECH_RMS = 0.012f
-    const val LEVEL_INTERVAL_MS = 100L
     val AYAH_LEVEL_KINDS = setOf("possible_skipped_ayah", "unclear_ayah")
   }
 }

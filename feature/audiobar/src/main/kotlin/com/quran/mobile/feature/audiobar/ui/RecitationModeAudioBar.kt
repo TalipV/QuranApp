@@ -141,8 +141,6 @@ private fun statusText(state: AudioBarState.RecitationMode): String {
     EngineStatus.Ready -> when {
       state.isProcessingBacklog() ->
         stringResource(R.string.recitation_mode_processing, state.backlogSeconds.roundToInt().coerceAtLeast(1))
-      state.isLagging() ->
-        stringResource(R.string.recitation_mode_lagging, state.trackingLagSeconds.roundToInt().coerceAtLeast(1))
       state.isListening -> stringResource(R.string.recitation_mode_listening)
       state.hasSession -> stringResource(R.string.recitation_mode_paused)
       else -> stringResource(R.string.recitation_mode_ready)
@@ -156,13 +154,7 @@ private fun AudioBarState.RecitationMode.isProcessingBacklog(): Boolean =
 
 private const val BACKLOG_VISIBLE_SECONDS = 0.9f
 
-/** Mehr als ~2 s gesprochen, ohne dass ein neues Wort erkannt wurde (≈ 4–6 Wörter). */
-private fun AudioBarState.RecitationMode.isLagging(): Boolean =
-  engineStatus == EngineStatus.Ready && isListening && trackingLagSeconds >= LAG_VISIBLE_SECONDS
-
-private const val LAG_VISIBLE_SECONDS = 2f
-
-private fun AudioBarState.RecitationMode.isBehind(): Boolean = isProcessingBacklog() || isLagging()
+private fun AudioBarState.RecitationMode.isBehind(): Boolean = isProcessingBacklog()
 
 @Preview
 @Composable

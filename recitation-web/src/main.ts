@@ -10,7 +10,7 @@
 import * as ort from "onnxruntime-web/wasm";
 import { SessionEndedError, type Engine, type ReferenceAsset, type TilawaSession } from "@tilawa/core";
 import phrases from "@tilawa/core/assets/phrases-v1.json";
-import { EventTranslator, SESSION_POLICY, buildEngine, wordLookup, type BridgeEvent } from "./engine";
+import { EventTranslator, QuranWords, SESSION_POLICY, buildEngine, type BridgeEvent, type Passage } from "./engine";
 
 interface TilawaHostBridge {
   postMessage(json: string): void;
@@ -82,7 +82,7 @@ interface BridgeConfig {
 }
 
 let engine: Engine | null = null;
-let words: ReturnType<typeof wordLookup> | null = null;
+let quran: QuranWords | null = null;
 let session: TilawaSession | null = null;
 let pendingConfig: BridgeConfig | null = null;
 
@@ -106,7 +106,7 @@ function forward(events: BridgeEvent[]): void {
 }
 
 function startSession(config: BridgeConfig): void {
-  if (!engine || !words) {
+  if (!engine || !quran) {
     pendingConfig = config;
     return;
   }
@@ -115,13 +115,13 @@ function startSession(config: BridgeConfig): void {
   const expected = config.expected;
   // Korrekturmodus: bekannte Passage → Tilawa bleibt darin und prüft auf Fehler.
   // Nur mitlesen / Stelle finden: freie Rezitation, überall im Quran.
-  const next = correction && expected
-    ? engine.startMemorization(
-      { surah: expected.surah, fromAyah: expected.ayah, toAyah: Math.max(expected.ayah, expected.ayahEnd ?? expected.ayah) },
-      SESSION_POLICY,
-    )
+  const passage: Passage | null = correction && expected
+    ? { surah: expected.surah, fromAyah: expected.ayah, toAyah: Math.max(expected.ayah, expected.ayahEnd ?? expected.ayah) }
+    : null;
+  const next = passage
+    ? engine.startMemorization(passage, SESSION_POLICY)
     : engine.startFreeRecitation(SESSION_POLICY);
-  const translator = new EventTranslator(words, correction);
+  const translator = new EventTranslator(quran, correction, passage);
   next.subscribe((e) => forward(translator.translate(e)));
   session = next;
 }
@@ -184,7 +184,7 @@ async function init(): Promise<void> {
       reference,
       phrases,
     });
-    words = wordLookup(reference);
+    quran = new QuranWords(reference);
     post({ type: "ready" });
     const config = pendingConfig;
     pendingConfig = null;

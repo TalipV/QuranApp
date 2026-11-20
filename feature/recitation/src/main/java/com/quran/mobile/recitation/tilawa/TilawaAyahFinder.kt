@@ -267,10 +267,14 @@ class TilawaAyahFinder @Inject constructor(
     }
   }
 
-  /** Kurz „gefunden“ zeigen, dann schließen und springen. */
+  /**
+   * Kurz „gefunden“ zeigen, dann schließen und springen. Der Leser startet danach direkt den
+   * Rezitationsmodus ab dieser Aya und verfolgt weiter Wort für Wort (siehe RecitationPresenterImpl.bind).
+   */
   private fun onMatch(ayah: SuraAyah) {
     val activity = activity ?: return
     val callback = onFound
+    modePresenter.requestAutoStart(ayah)
     engineHolder.current()?.stopRecording(flush = false)
     isListening = false
     handler.removeCallbacks(ticker)
