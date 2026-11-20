@@ -216,7 +216,7 @@ class TilawaAyahFinder @Inject constructor(
     detailView?.let { detail ->
       val text = candidateText
       detail.visibility = if (text != null) View.VISIBLE else View.GONE
-      if (text != null) detail.text = activity.getString(R.string.tilawa_finder_candidate, text)
+      if (text != null) detail.text = text
     }
   }
 
@@ -258,8 +258,12 @@ class TilawaAyahFinder @Inject constructor(
     when (event.optString("type")) {
       "verse_candidate" -> {
         val best = event.optJSONArray("candidates")?.optJSONObject(0) ?: return
-        candidateText = "${best.optInt("surah")}:${best.optInt("ayah")}"
+        candidateText = activity?.getString(
+          R.string.tilawa_finder_candidate, "${best.optInt("surah")}:${best.optInt("ayah")}"
+        )
       }
+      // Aʿūḏu billāh / Basmala: keine Suche, auf die eigentliche Rezitation warten
+      "intro" -> candidateText = activity?.getString(R.string.tilawa_finder_intro)
       "verse_match" -> {
         val ayah = SuraAyah(event.getInt("surah"), event.getInt("ayah"))
         onMatch(ayah)

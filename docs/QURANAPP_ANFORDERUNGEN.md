@@ -63,6 +63,9 @@ bei Stille bzw. Hintergrundgeräuschen an, und mit Tilawa 1.x ist sie laut Inhab
   2 Wörter fortlaufend weitergeht. Danach gilt sie rückwirkend ab ihrem Beginn. Einleitungen gehen
   nie in 2:67 bzw. 1:1 weiter und werden so nie bestätigt.
 - *Korrekturmodus:* Es zählen nur Stellen innerhalb der Passage.
+- Während der Einleitung wird auch nichts *vermutet*: Treffer in Ayat, die dieselben Wörter
+  enthalten (2:67, 11:47, 19:18, 16:98 … bzw. 1:1, 27:30), erscheinen nicht als „Vermutlich: …“.
+  Der Dialog „Stelle finden“ zeigt stattdessen „Aʿūḏu / Basmala erkannt – rezitiere weiter …“.
 - Getestet mit echter Rezitation (aʿūḏu + Basmala + Yā-Sīn, Basmala + Al-Baqara) in `npm run smoke`.
 - Bekannte Grenze: Einzelbuchstaben-Ayat wie 36:1 „Yā-Sīn“ oder 2:1 „Alif-Lām-Mīm“ erkennt Tilawa
   allein nicht. Die Stelle wird dann ab der folgenden Aya erkannt.

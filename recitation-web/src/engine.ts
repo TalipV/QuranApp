@@ -74,6 +74,21 @@ const CONFIRM_WORDS = 2;
 /** So weit darf ein Positionsschritt springen und trotzdem als „fortlaufend“ gelten (Wörter). */
 const MAX_STEP = 4;
 
+/**
+ * Ayat, die beim Rezitieren der Einleitung (aʿūḏu billāhi … / Basmala) als Treffer auftauchen,
+ * weil sie dieselben Wörter enthalten. Sie werden nie als bloße Vermutung angezeigt; eine echte
+ * Rezitation dieser Ayat wird trotzdem erkannt (über die normale Bestätigung).
+ */
+const INTRO_AYAHS = new Set([
+  // aʿūḏu / istiʿāḏa
+  "2:67", "7:200", "11:47", "12:23", "12:79", "16:98", "19:18", "23:97", "23:98", "40:27", "40:56", "41:36", "44:20",
+  "113:1", "114:1",
+  // Basmala
+  "1:1", "27:30",
+]);
+
+const isIntro = (w: WordRef) => INTRO_AYAHS.has(`${w.surah}:${w.ayah}`);
+
 /** Wörter des Quran aus der Referenz: Wortlaut je Aya und fortlaufende Wortnummer über alle Ayat. */
 export class QuranWords {
   private readonly ayahs = new Map<string, { words: string[]; first: number }>();
@@ -135,6 +150,8 @@ export class EventTranslator {
   private pending: { start: number; startWord: WordRef; last: number } | null = null;
   private lastWord: WordRef | null = null;
   private lastAyahKey: string | null = null;
+  /** Gerade wird (vermutlich) die Einleitung rezitiert – einmal an die App melden. */
+  private inIntro = false;
   private readonly reported = new Set<string>();
   /** Bestätigte Fehler, die vor der ersten bestätigten Stelle ankamen – werden danach geprüft. */
   private held: CheckerEvent[] = [];
@@ -160,26 +177,36 @@ export class EventTranslator {
     const best = e.observed[0];
     if (!best) return [];
     const continues = e.state === "locked" && this.inPassage(best.word) && this.isContinuation(best.word);
+    const out: BridgeEvent[] = [];
+    // Einleitung (aʿūḏu / Basmala): nichts vermuten, nur melden und auf die Rezitation warten
+    if (this.current === null) {
+      const intro = isIntro(best.word);
+      if (intro && !this.inIntro) out.push({ type: "intro" });
+      this.inIntro = intro;
+    }
     if (!continues && (e.state !== "locked" || best.confidence < MIN_LOCK_CONFIDENCE || !this.inPassage(best.word))) {
-      if (this.current === null && (e.state === "acquiring" || e.state === "ambiguous")) {
-        return [{
-          type: "verse_candidate",
-          stable: false,
-          candidates: e.observed.filter((c) => this.inPassage(c.word)).slice(0, 3).map((c, rank) => ({
-            surah: c.word.surah, ayah: c.word.ayah, confidence: c.confidence, rank,
-          })),
-        }];
+      if (this.current === null && !this.inIntro && (e.state === "acquiring" || e.state === "ambiguous")) {
+        const candidates = e.observed.filter((c) => this.inPassage(c.word) && !isIntro(c.word));
+        if (candidates.length > 0) {
+          out.push({
+            type: "verse_candidate",
+            stable: false,
+            candidates: candidates.slice(0, 3).map((c, rank) => ({
+              surah: c.word.surah, ayah: c.word.ayah, confidence: c.confidence, rank,
+            })),
+          });
+        }
       }
-      return [];
+      return out;
     }
 
     const w = best.word;
     const g = this.quran.index(w);
-    if (g < 0) return [];
+    if (g < 0) return out;
 
     // fortlaufend zur bestätigten Stelle (ein Wort zurück erlaubt: Wiederholung des letzten Wortes)
     if (this.current !== null && g >= this.current - 1 && g <= this.current + MAX_STEP) {
-      return this.accept(w, g);
+      return [...out, ...this.accept(w, g)];
     }
     // neue Stelle: erst nach ein paar fortlaufenden Wörtern bestätigen
     // Mit Passage (Korrekturmodus) schließt schon die Passage Einleitungen wie 2:67 / 1:1 aus.
@@ -187,12 +214,12 @@ export class EventTranslator {
     const p = this.pending;
     if (p && g > p.last && g - p.last <= MAX_STEP) {
       p.last = g;
-      if (g - p.start >= confirmWords) return this.accept(w, g, p.startWord);
+      if (g - p.start >= confirmWords) return [...out, ...this.accept(w, g, p.startWord)];
     } else if (!p || g !== p.last) {
       this.pending = { start: g, startWord: { ...w }, last: g };
-      if (confirmWords === 0) return this.accept(w, g);
+      if (confirmWords === 0) return [...out, ...this.accept(w, g)];
     }
-    return [];
+    return out;
   }
 
   /**

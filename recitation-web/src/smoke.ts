@@ -126,6 +126,11 @@ if (clips) {
   const freeYs = await run(engine.startFreeRecitation(SESSION_POLICY), new EventTranslator(words, false), yasin);
   console.log("  Aʿūḏu + Basmala + 36:1–3, frei:", matchesOf(freeYs).join(", ") || "(keine)");
   check(matchesOf(freeYs).length > 0 && matchesOf(freeYs).every((m) => m.startsWith("36:")), "Einleitung frei: nur Yā-Sīn erkannt");
+  const guesses = freeYs.filter((e) => e.type === "verse_candidate")
+    .flatMap((e) => (e.candidates as { surah: number; ayah: number }[]).map((c) => `${c.surah}:${c.ayah}`));
+  console.log("  Vermutungen:", [...new Set(guesses)].join(", ") || "(keine)", "| Einleitung gemeldet:", freeYs.some((e) => e.type === "intro"));
+  check(!guesses.some((g) => ["2:67", "11:47", "19:18", "1:1", "27:30"].includes(g)), "Einleitung frei: keine Vermutung für aʿūḏu/Basmala-Ayat");
+  check(freeYs.some((e) => e.type === "intro"), "Einleitung frei: als Einleitung gemeldet");
   const p36 = { surah: 36, fromAyah: 1, toAyah: 83 };
   const memoYs = await run(engine.startMemorization(p36, SESSION_POLICY), new EventTranslator(words, true, p36), yasin);
   console.log("  Aʿūḏu + Basmala + 36:1–3, Korrektur:", matchesOf(memoYs).join(", ") || "(keine)", JSON.stringify(notesOf(memoYs)));
