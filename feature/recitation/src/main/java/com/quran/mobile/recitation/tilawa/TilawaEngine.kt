@@ -104,11 +104,20 @@ class TilawaEngine(context: Context, private val listener: Listener) {
     val bytes = ByteBuffer.allocate(CHUNK_SAMPLES * BYTES_PER_SAMPLE).order(ByteOrder.LITTLE_ENDIAN)
     try {
       while (isRecording) {
-        val read = recorder.read(samples, 0, samples.size, AudioRecord.READ_BLOCKING)
-        if (read <= 0) continue
+        // In 100-ms-Stücken lesen, damit die Pegelanzeige flüssig reagiert;
+        // an JS geht weiterhin ein 300-ms-Block.
+        var filled = 0
+        while (isRecording && filled < CHUNK_SAMPLES) {
+          val size = minOf(LEVEL_SAMPLES, CHUNK_SAMPLES - filled)
+          val read = recorder.read(samples, filled, size, AudioRecord.READ_BLOCKING)
+          if (read <= 0) continue
+          postLevel(rms(samples, filled, read))
+          filled += read
+        }
+        if (filled == 0) continue
         bytes.clear()
-        bytes.asFloatBuffer().put(samples, 0, read)
-        val base64 = Base64.encodeToString(bytes.array(), 0, read * BYTES_PER_SAMPLE, Base64.NO_WRAP)
+        bytes.asFloatBuffer().put(samples, 0, filled)
+        val base64 = Base64.encodeToString(bytes.array(), 0, filled * BYTES_PER_SAMPLE, Base64.NO_WRAP)
         evaluate("window.tilawa.feed('$base64')")
       }
     } catch (e: Exception) {
@@ -122,6 +131,19 @@ class TilawaEngine(context: Context, private val listener: Listener) {
 
   private fun evaluate(script: String) {
     mainHandler.post { webView.evaluateJavascript(script, null) }
+  }
+
+  private fun rms(samples: FloatArray, offset: Int, count: Int): Float {
+    var sum = 0.0
+    for (i in offset until offset + count) sum += samples[i] * samples[i]
+    return kotlin.math.sqrt(sum / count).toFloat()
+  }
+
+  /** Mikrofonpegel (RMS) als `{type: "level", rms}` – für die Anzeige „ich höre zu“. */
+  private fun postLevel(rms: Float) {
+    mainHandler.post {
+      listener.onTilawaMessage(JSONObject().put("type", "level").put("rms", rms.toDouble()))
+    }
   }
 
   private fun postError(message: String) {
@@ -185,5 +207,6 @@ class TilawaEngine(context: Context, private val listener: Listener) {
     private const val ENCODING = AudioFormat.ENCODING_PCM_FLOAT
     private const val BYTES_PER_SAMPLE = 4
     private const val CHUNK_SAMPLES = 4_800 // 300 ms
+    private const val LEVEL_SAMPLES = 1_600 // 100 ms
   }
 }

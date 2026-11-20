@@ -18,5 +18,10 @@
   <string name="tilawa_status_preparing">Erkennung wird vorbereitet …</string>
   <string name="tilawa_finder_title">Stelle per Rezitation finden</string>
   <string name="tilawa_finder_listening">Bereit – rezitiere jetzt eine beliebige Stelle.</string>
+  <string name="tilawa_finder_hearing">Ich höre zu …</string>
+  <string name="tilawa_finder_processing">Wird ausgewertet …</string>
+  <string name="tilawa_finder_not_found_yet">Noch keine Stelle erkannt – rezitiere bitte weiter (ein paar Wörter mehr).</string>
+  <string name="tilawa_finder_candidate">Vermutlich: %1$s</string>
+  <string name="tilawa_finder_found">Gefunden: %1$d:%2$d</string>
   <string name="tilawa_cancel">Abbrechen</string>
 </resources>
