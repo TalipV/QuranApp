@@ -9,7 +9,7 @@
     "smoke": "esbuild src/smoke.ts --bundle --platform=node --format=esm --target=node20 --external:onnxruntime-node --outfile=.cache/smoke.mjs --log-level=warning && node .cache/smoke.mjs"
   },
   "dependencies": {
-    "@tilawa/core": "1.0.0-rc.0",
+    "@tilawa/core": "1.0.0-rc.1",
     "onnxruntime-web": "1.24.2"
   },
   "devDependencies": {

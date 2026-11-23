@@ -40,7 +40,7 @@ android {
     // versionCode setzt das CI über -PappVersionCode (4000 + Build-Nummer); 3650 nur für lokale Builds.
     // Der Abstand zu 4000 hält ihn über dem alten 3650, damit die APK als Update installiert.
     versionCode = (findProperty("appVersionCode") as String?)?.toInt() ?: 3650
-    versionName = "0.1.0"
+    versionName = "0.1.1"
     testInstrumentationRunner = "com.quran.labs.androidquran.core.QuranTestRunner"
   }
 
