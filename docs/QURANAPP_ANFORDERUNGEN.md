@@ -83,3 +83,21 @@ Offen bleibt: Ayat, die selbst über einen Seitenumbruch gehen, blättern erst m
 | F1 | Mikrofon-Knopf in der Suren-Liste: rezitierte Stelle erkennen und dorthin springen. | ✅ |
 | F3 | **Nach „Stelle finden“ direkt weitermachen:** Nach dem Sprung zur gefundenen Stelle startet sofort der Rezitationsmodus (mit Korrektur) ab dieser Aya und verfolgt Wort für Wort weiter. | 🧪 |
 | F2 | **Sichtbares Feedback im Dialog:** Es muss klar sein, wann er bereit ist zuzuhören, wann er Sprache aufnimmt und wann er sie verarbeitet. Gelöst mit einem animierten Mikrofon: grau = lädt, Pulsieren = bereit, Ringe nach Lautstärke = hört zu, drehender Bogen + Balken = wertet aus, grünes Häkchen = gefunden. Dazu Statustext und die vermutete Stelle. | 🧪 |
+
+## Laufende Rezitationen (Fortschritt je Sure)
+
+| # | Wunsch | Status |
+|---|--------|--------|
+| L1 | Eine Sure (z. B. Al-Kahf) entspannt in mehreren Etappen lesen: neue Rezitation beginnen, beim Aufhören die Stelle markieren, beim nächsten Öffnen der App diese Stelle sofort angezeigt bekommen. | 🧪 |
+
+**Umsetzung L1:**
+- *Markieren:* Im Leser lange auf eine Aya tippen, dann in der Aya-Leiste das Fähnchen „Fortschritt hier merken“.
+  - Läuft für diese Sure noch keine Rezitation, beginnt damit eine neue („Neue Rezitation von Al-Kahf begonnen – Aya 23 gemerkt“).
+  - Sonst wird die Stelle aktualisiert.
+  - Ist die markierte Aya die letzte der Sure, gilt die Rezitation als abgeschlossen und wird gezählt.
+- *Startseite:* Oben erscheint je laufender Rezitation eine Karte, z. B. „Al-Kahf weiterlesen – Aya 23 · Seite 296 · vor 2 Tagen · bisher 3× abgeschlossen“.
+  - Antippen springt zur Seite und hebt die Aya hervor.
+  - „⋮“ bietet „Als gelesen abschließen“ (zählt mit) und „Verwerfen“.
+- *Speicherung:* lokal in der App (SharedPreferences `quranapp_reading_progress`), eine laufende Rezitation je Sure.
+- *Code:* `app/.../quranapp/ReadingProgressStore.kt`, `ReadingProgressHomeSection.kt`, Menüpunkt `cab_mark_progress` in `common/toolbar`.
+- *Idee für später:* Im Rezitationsmodus beim Pausieren die erkannte Stelle automatisch merken.

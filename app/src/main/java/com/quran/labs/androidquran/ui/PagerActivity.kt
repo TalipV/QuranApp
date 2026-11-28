@@ -66,6 +66,7 @@ import com.quran.labs.androidquran.HelpActivity
 import com.quran.labs.androidquran.QuranApplication
 import com.quran.labs.androidquran.QuranPreferenceActivity
 import com.quran.labs.androidquran.R
+import com.quran.labs.androidquran.quranapp.ReadingProgressStore
 import com.quran.labs.androidquran.SearchActivity
 import com.quran.labs.androidquran.common.QuranAyahInfo
 import com.quran.labs.androidquran.common.audio.model.QariItem
@@ -1902,6 +1903,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         )
         playFromAyah(startSuraAyah.sura, startSuraAyah.ayah)
         toggleActionBarVisibility(true)
+      } else if (itemId == com.quran.labs.androidquran.common.toolbar.R.id.cab_mark_progress) {
+        markReadingProgress(endSuraAyah)
       } else if (itemId == com.quran.labs.androidquran.common.toolbar.R.id.cab_recite_from_here) {
         onEndSessionBackCallback.isEnabled = true
         pagerActivityRecitationPresenter.onRecitationPressed()
@@ -1922,6 +1925,23 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
       }
       return true
     }
+  }
+
+  /** QuranApp: „Laufende Rezitationen“ – Stelle merken (letzte Aya der Sure schließt ab). */
+  private fun markReadingProgress(ayah: SuraAyah) {
+    val isLastAyah = ayah.ayah >= quranInfo.getNumberOfAyahs(ayah.sura)
+    val page = quranInfo.getPageFromSuraAyah(ayah.sura, ayah.ayah)
+    val (result, progress) = ReadingProgressStore(this).mark(ayah.sura, ayah.ayah, page, isLastAyah)
+    val name = quranDisplayData.getSuraName(this, ayah.sura, false)
+    val text = when (result) {
+      ReadingProgressStore.MarkResult.STARTED ->
+        getString(R.string.quranapp_progress_started, name, ayah.ayah)
+      ReadingProgressStore.MarkResult.UPDATED ->
+        getString(R.string.quranapp_progress_updated, name, ayah.ayah)
+      ReadingProgressStore.MarkResult.COMPLETED ->
+        getString(R.string.quranapp_progress_completed, name, progress.completedCount)
+    }
+    Toast.makeText(this, text, Toast.LENGTH_LONG).show()
   }
 
   private fun shareAyah(start: SuraAyah, end: SuraAyah, isCopy: Boolean) {

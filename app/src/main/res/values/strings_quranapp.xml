@@ -3,4 +3,14 @@
   <!-- Eigener Launcher-Name, damit die App nicht mit dem Original verwechselt wird -->
   <string name="quranapp_name">QuranApp</string>
   <string name="quranapp_find_by_recitation">Stelle per Rezitation finden</string>
+  <!-- Laufende Rezitationen (Fortschritt je Sure) -->
+  <string name="quranapp_progress_continue">%1$s weiterlesen</string>
+  <string name="quranapp_progress_details">Aya %1$d · Seite %2$d</string>
+  <string name="quranapp_progress_completed_count">bisher %1$d× abgeschlossen</string>
+  <string name="quranapp_progress_more">Mehr</string>
+  <string name="quranapp_progress_complete">Als gelesen abschließen</string>
+  <string name="quranapp_progress_discard">Verwerfen</string>
+  <string name="quranapp_progress_started">Neue Rezitation von %1$s begonnen – Aya %2$d gemerkt</string>
+  <string name="quranapp_progress_updated">%1$s: Aya %2$d gemerkt</string>
+  <string name="quranapp_progress_completed">%1$s abgeschlossen – insgesamt %2$d×</string>
 </resources>

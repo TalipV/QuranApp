@@ -30,6 +30,14 @@
         android:layout_height="wrap_content" />
   </LinearLayout>
 
+  <!-- QuranApp: Karten „Weiterlesen“ für laufende Rezitationen (ReadingProgressHomeSection) -->
+  <LinearLayout
+      android:id="@+id/reading_progress_list"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:visibility="gone" />
+
   <FrameLayout
       android:layout_width="match_parent"
       android:layout_height="match_parent">

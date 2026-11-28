@@ -41,6 +41,9 @@ import com.quran.labs.androidquran.HelpActivity
 import com.quran.labs.androidquran.QuranApplication
 import com.quran.labs.androidquran.QuranPreferenceActivity
 import com.quran.labs.androidquran.R
+import com.quran.labs.androidquran.data.QuranDisplayData
+import com.quran.labs.androidquran.quranapp.ReadingProgressHomeSection
+import com.quran.labs.androidquran.quranapp.ReadingProgressStore
 import com.quran.labs.androidquran.SearchActivity
 import com.quran.labs.androidquran.ShortcutsActivity
 import com.quran.labs.androidquran.data.Constants
@@ -142,6 +145,11 @@ class QuranActivity : AppCompatActivity(),
   lateinit var extraScreens: Set<@JvmSuppressWildcards ExtraScreenProvider>
   @Inject
   lateinit var tilawaAyahFinder: TilawaAyahFinder
+  @Inject
+  lateinit var quranDisplayData: QuranDisplayData
+
+  // QuranApp: Karten „Weiterlesen“ für laufende Rezitationen
+  private var readingProgressSection: ReadingProgressHomeSection? = null
 
   // QuranApp: Mikrofon-Berechtigung für „Stelle per Rezitation finden“
   private val requestMicrophoneForFinder =
@@ -185,6 +193,14 @@ class QuranActivity : AppCompatActivity(),
       // the navigation bar).
       windowInsets
     }
+
+    readingProgressSection = ReadingProgressHomeSection(
+      activity = this,
+      container = findViewById(R.id.reading_progress_list),
+      store = ReadingProgressStore(this),
+      suraName = { sura -> quranDisplayData.getSuraName(this, sura, false) },
+      open = { ayah -> quranNavigator.jumpTo(ayah) },
+    )
 
     findViewById<View>(R.id.recitation_finder).setOnClickListener {
       val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -240,6 +256,7 @@ class QuranActivity : AppCompatActivity(),
 
   public override fun onResume() {
     super.onResume()
+    readingProgressSection?.render()
     val isRtl = isRtl()
     if (isRtl != this.isRtl) {
       val i = intent
