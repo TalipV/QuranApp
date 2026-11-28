@@ -84,20 +84,25 @@ Offen bleibt: Ayat, die selbst über einen Seitenumbruch gehen, blättern erst m
 | F3 | **Nach „Stelle finden“ direkt weitermachen:** Nach dem Sprung zur gefundenen Stelle startet sofort der Rezitationsmodus (mit Korrektur) ab dieser Aya und verfolgt Wort für Wort weiter. | 🧪 |
 | F2 | **Sichtbares Feedback im Dialog:** Es muss klar sein, wann er bereit ist zuzuhören, wann er Sprache aufnimmt und wann er sie verarbeitet. Gelöst mit einem animierten Mikrofon: grau = lädt, Pulsieren = bereit, Ringe nach Lautstärke = hört zu, drehender Bogen + Balken = wertet aus, grünes Häkchen = gefunden. Dazu Statustext und die vermutete Stelle. | 🧪 |
 
-## Laufende Rezitationen (Fortschritt je Sure)
+## Fortschritts-Tracker (Laufende Rezitationen)
 
 | # | Wunsch | Status |
 |---|--------|--------|
-| L1 | Eine Sure (z. B. Al-Kahf) entspannt in mehreren Etappen lesen: neue Rezitation beginnen, beim Aufhören die Stelle markieren, beim nächsten Öffnen der App diese Stelle sofort angezeigt bekommen. | 🧪 |
+| L1 | Eine Sure (z. B. Al-Kahf) entspannt in mehreren Etappen lesen: Stelle markieren, beim nächsten Öffnen der App sofort dorthin. | 🧪 |
+| L2 | **Benannte Tracker:** Beim Markieren fragt die App, in welchem Tracker gemerkt wird. Anfangs gibt es nur „Standard“, über „＋“ lassen sich neue anlegen (z. B. „Suratul Kahf“, „Runde mit Freunden“, „Private Khatma“). | 🧪 |
 
-**Umsetzung L1:**
-- *Markieren:* Im Leser lange auf eine Aya tippen, dann in der Aya-Leiste das Fähnchen „Fortschritt hier merken“.
-  - Läuft für diese Sure noch keine Rezitation, beginnt damit eine neue („Neue Rezitation von Al-Kahf begonnen – Aya 23 gemerkt“).
-  - Sonst wird die Stelle aktualisiert.
-  - Ist die markierte Aya die letzte der Sure, gilt die Rezitation als abgeschlossen und wird gezählt.
-- *Startseite:* Oben erscheint je laufender Rezitation eine Karte, z. B. „Al-Kahf weiterlesen – Aya 23 · Seite 296 · vor 2 Tagen · bisher 3× abgeschlossen“.
-  - Antippen springt zur Seite und hebt die Aya hervor.
-  - „⋮“ bietet „Als gelesen abschließen“ (zählt mit) und „Verwerfen“.
-- *Speicherung:* lokal in der App (SharedPreferences `quranapp_reading_progress`), eine laufende Rezitation je Sure.
-- *Code:* `app/.../quranapp/ReadingProgressStore.kt`, `ReadingProgressHomeSection.kt`, Menüpunkt `cab_mark_progress` in `common/toolbar`.
-- *Idee für später:* Im Rezitationsmodus beim Pausieren die erkannte Stelle automatisch merken.
+**Umsetzung (seit 0.3.0):**
+- *Markieren:* Im Leser lange auf eine Aya tippen, in der Aya-Leiste das Fähnchen wählen. Dann erscheint der Dialog
+  „Fortschritt merken in …“: Liste der Tracker (unter dem Namen klein die gemerkte Stelle), dazu „＋ Neuer Tracker“
+  mit Namenseingabe. Die Aya wird im gewählten Tracker gemerkt.
+- *Tracker:* Ein Tracker merkt sich eine Stelle, egal in welcher Sure. „Standard“ gibt es immer und lässt sich nicht löschen.
+- *Startseite:* Je Tracker mit gemerkter Stelle eine Karte, z. B. „Runde mit Freunden – Al-Baqara, Aya 142 · Seite 22 · vor 3 Tagen“.
+  - Antippen springt zur Aya (hervorgehoben).
+  - „⋮“ bietet: Runde abschließen (zählt mit), Stelle zurücksetzen, Umbenennen, Tracker löschen.
+- *Übernahme aus 0.2.0:* Die damals je Sure gemerkten Rezitationen werden einmalig zu Trackern mit dem Namen der Sure.
+- *Geändert gegenüber 0.2.0:* Kein automatisches Abschließen an der letzten Aya einer Sure mehr, weil ein Tracker
+  nicht an eine Sure gebunden ist. Abgeschlossen wird über „⋮ → Runde abschließen“.
+- *Speicherung:* lokal (SharedPreferences `quranapp_reading_progress`, Schlüssel `trackers`, JSON).
+- *Code:* `app/.../quranapp/ReadingProgressStore.kt`, `ReadingProgressDialogs.kt`, `ReadingProgressHomeSection.kt`;
+  Menüpunkt `cab_mark_progress` in `common/toolbar`.
+- *Idee für später:* Im Rezitationsmodus beim Pausieren die erkannte Stelle automatisch in einem Tracker merken.

@@ -3,14 +3,21 @@
   <!-- Eigener Launcher-Name, damit die App nicht mit dem Original verwechselt wird -->
   <string name="quranapp_name">QuranApp</string>
   <string name="quranapp_find_by_recitation">Stelle per Rezitation finden</string>
-  <!-- Laufende Rezitationen (Fortschritt je Sure) -->
-  <string name="quranapp_progress_continue">%1$s weiterlesen</string>
-  <string name="quranapp_progress_details">Aya %1$d · Seite %2$d</string>
-  <string name="quranapp_progress_completed_count">bisher %1$d× abgeschlossen</string>
-  <string name="quranapp_progress_more">Mehr</string>
-  <string name="quranapp_progress_complete">Als gelesen abschließen</string>
-  <string name="quranapp_progress_discard">Verwerfen</string>
-  <string name="quranapp_progress_started">Neue Rezitation von %1$s begonnen – Aya %2$d gemerkt</string>
-  <string name="quranapp_progress_updated">%1$s: Aya %2$d gemerkt</string>
-  <string name="quranapp_progress_completed">%1$s abgeschlossen – insgesamt %2$d×</string>
+  <!-- Fortschritts-Tracker (ReadingProgressStore / -Dialogs / -HomeSection) -->
+  <string name="quranapp_tracker_pick_title">Fortschritt merken in …</string>
+  <string name="quranapp_tracker_new">＋ Neuer Tracker</string>
+  <string name="quranapp_tracker_new_title">Neuer Tracker</string>
+  <string name="quranapp_tracker_name_hint">z. B. Suratul Kahf, Runde mit Freunden</string>
+  <string name="quranapp_tracker_ok">OK</string>
+  <string name="quranapp_tracker_cancel">Abbrechen</string>
+  <string name="quranapp_tracker_position">%1$s, Aya %2$d</string>
+  <string name="quranapp_tracker_page">Seite %1$d</string>
+  <string name="quranapp_tracker_completed_count">bisher %1$d× abgeschlossen</string>
+  <string name="quranapp_tracker_more">Mehr</string>
+  <string name="quranapp_tracker_complete">Runde abschließen</string>
+  <string name="quranapp_tracker_reset">Stelle zurücksetzen</string>
+  <string name="quranapp_tracker_rename">Umbenennen</string>
+  <string name="quranapp_tracker_delete">Tracker löschen</string>
+  <string name="quranapp_tracker_marked">„%1$s“: %2$s gemerkt</string>
+  <string name="quranapp_tracker_completed">„%1$s“: Runde abgeschlossen – insgesamt %2$d×</string>
 </resources>

@@ -194,11 +194,12 @@ class QuranActivity : AppCompatActivity(),
       windowInsets
     }
 
+    val suraName = { sura: Int -> quranDisplayData.getSuraName(this, sura, false) }
     readingProgressSection = ReadingProgressHomeSection(
       activity = this,
       container = findViewById(R.id.reading_progress_list),
-      store = ReadingProgressStore(this),
-      suraName = { sura -> quranDisplayData.getSuraName(this, sura, false) },
+      store = ReadingProgressStore(this, suraName),
+      suraName = suraName,
       open = { ayah -> quranNavigator.jumpTo(ayah) },
     )
 

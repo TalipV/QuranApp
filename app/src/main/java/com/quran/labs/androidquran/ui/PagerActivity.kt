@@ -66,6 +66,7 @@ import com.quran.labs.androidquran.HelpActivity
 import com.quran.labs.androidquran.QuranApplication
 import com.quran.labs.androidquran.QuranPreferenceActivity
 import com.quran.labs.androidquran.R
+import com.quran.labs.androidquran.quranapp.ReadingProgressDialogs
 import com.quran.labs.androidquran.quranapp.ReadingProgressStore
 import com.quran.labs.androidquran.SearchActivity
 import com.quran.labs.androidquran.common.QuranAyahInfo
@@ -1927,21 +1928,17 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     }
   }
 
-  /** QuranApp: „Laufende Rezitationen“ – Stelle merken (letzte Aya der Sure schließt ab). */
+  /** QuranApp: Fortschritts-Tracker – Tracker wählen (oder neu anlegen) und die Aya dort merken. */
   private fun markReadingProgress(ayah: SuraAyah) {
-    val isLastAyah = ayah.ayah >= quranInfo.getNumberOfAyahs(ayah.sura)
-    val page = quranInfo.getPageFromSuraAyah(ayah.sura, ayah.ayah)
-    val (result, progress) = ReadingProgressStore(this).mark(ayah.sura, ayah.ayah, page, isLastAyah)
-    val name = quranDisplayData.getSuraName(this, ayah.sura, false)
-    val text = when (result) {
-      ReadingProgressStore.MarkResult.STARTED ->
-        getString(R.string.quranapp_progress_started, name, ayah.ayah)
-      ReadingProgressStore.MarkResult.UPDATED ->
-        getString(R.string.quranapp_progress_updated, name, ayah.ayah)
-      ReadingProgressStore.MarkResult.COMPLETED ->
-        getString(R.string.quranapp_progress_completed, name, progress.completedCount)
+    val suraName = { sura: Int -> quranDisplayData.getSuraName(this, sura, false) }
+    val store = ReadingProgressStore(this, suraName)
+    ReadingProgressDialogs.pickTracker(this, store, suraName) { tracker ->
+      val page = quranInfo.getPageFromSuraAyah(ayah.sura, ayah.ayah)
+      store.mark(tracker.id, ayah.sura, ayah.ayah, page)?.let { (_, marked) ->
+        val position = getString(R.string.quranapp_tracker_position, suraName(ayah.sura), ayah.ayah)
+        Toast.makeText(this, getString(R.string.quranapp_tracker_marked, marked.name, position), Toast.LENGTH_LONG).show()
+      }
     }
-    Toast.makeText(this, text, Toast.LENGTH_LONG).show()
   }
 
   private fun shareAyah(start: SuraAyah, end: SuraAyah, isCopy: Boolean) {

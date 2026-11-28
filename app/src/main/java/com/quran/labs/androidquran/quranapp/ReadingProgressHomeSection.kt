@@ -15,8 +15,9 @@ import com.quran.data.model.SuraAyah
 import com.quran.labs.androidquran.R
 
 /**
- * QuranApp: Karten „Weiterlesen“ auf der Startseite – eine je laufender Rezitation.
- * Antippen springt zur gemerkten Aya (wird im Leser hervorgehoben), „⋮“ bietet Abschließen/Verwerfen.
+ * QuranApp: Karten „Weiterlesen“ auf der Startseite – eine je Tracker mit gemerkter Stelle.
+ * Antippen springt zur gemerkten Aya (wird im Leser hervorgehoben), „⋮“ bietet
+ * Runde abschließen / Zurücksetzen / Umbenennen / Löschen.
  */
 class ReadingProgressHomeSection(
   private val activity: Activity,
@@ -28,32 +29,33 @@ class ReadingProgressHomeSection(
 
   fun render() {
     container.removeAllViews()
-    val active = store.active()
-    container.visibility = if (active.isEmpty()) View.GONE else View.VISIBLE
-    active.forEach { container.addView(card(it)) }
+    val trackers = store.withPosition()
+    container.visibility = if (trackers.isEmpty()) View.GONE else View.VISIBLE
+    trackers.forEach { container.addView(card(it)) }
   }
 
-  private fun card(progress: ReadingProgressStore.Progress): View {
+  private fun card(tracker: ReadingProgressStore.Tracker): View {
     val density = activity.resources.displayMetrics.density
     val pad = (12 * density).toInt()
-    val name = suraName(progress.sura)
 
     val title = TextView(activity).apply {
-      text = activity.getString(R.string.quranapp_progress_continue, name)
+      text = tracker.name
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
       setTypeface(typeface, android.graphics.Typeface.BOLD)
     }
     val details = buildString {
-      append(activity.getString(R.string.quranapp_progress_details, progress.ayah, progress.page))
+      append(activity.getString(R.string.quranapp_tracker_position, suraName(tracker.sura), tracker.ayah))
+      append(" · ")
+      append(activity.getString(R.string.quranapp_tracker_page, tracker.page))
       append(" · ")
       append(
         DateUtils.getRelativeTimeSpanString(
-          progress.updatedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS
+          tracker.updatedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS
         )
       )
-      if (progress.completedCount > 0) {
+      if (tracker.completedCount > 0) {
         append(" · ")
-        append(activity.getString(R.string.quranapp_progress_completed_count, progress.completedCount))
+        append(activity.getString(R.string.quranapp_tracker_completed_count, tracker.completedCount))
       }
     }
     val subtitle = TextView(activity).apply {
@@ -68,9 +70,9 @@ class ReadingProgressHomeSection(
     }
     val more = ImageButton(activity).apply {
       setImageResource(R.drawable.ic_quranapp_more)
-      contentDescription = activity.getString(R.string.quranapp_progress_more)
+      contentDescription = activity.getString(R.string.quranapp_tracker_more)
       background = selectableBackground()
-      setOnClickListener { showMenu(it, progress, name) }
+      setOnClickListener { showMenu(it, tracker) }
     }
 
     return LinearLayout(activity).apply {
@@ -79,26 +81,35 @@ class ReadingProgressHomeSection(
       setPadding(pad, pad / 2, pad / 2, pad / 2)
       background = selectableBackground()
       isClickable = true
-      setOnClickListener { open(SuraAyah(progress.sura, progress.ayah)) }
+      setOnClickListener { open(SuraAyah(tracker.sura, tracker.ayah)) }
       addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
       addView(more, LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()))
     }
   }
 
-  private fun showMenu(anchor: View, progress: ReadingProgressStore.Progress, name: String) {
+  private fun showMenu(anchor: View, tracker: ReadingProgressStore.Tracker) {
     PopupMenu(activity, anchor).apply {
-      menu.add(0, MENU_COMPLETE, 0, R.string.quranapp_progress_complete)
-      menu.add(0, MENU_DISCARD, 1, R.string.quranapp_progress_discard)
+      menu.add(0, MENU_COMPLETE, 0, R.string.quranapp_tracker_complete)
+      menu.add(0, MENU_RESET, 1, R.string.quranapp_tracker_reset)
+      menu.add(0, MENU_RENAME, 2, R.string.quranapp_tracker_rename)
+      if (!tracker.isDefault) menu.add(0, MENU_DELETE, 3, R.string.quranapp_tracker_delete)
       setOnMenuItemClickListener { item ->
         when (item.itemId) {
-          MENU_COMPLETE -> store.complete(progress.sura)?.let {
+          MENU_COMPLETE -> store.complete(tracker.id)?.let {
             Toast.makeText(
               activity,
-              activity.getString(R.string.quranapp_progress_completed, name, it.completedCount),
+              activity.getString(R.string.quranapp_tracker_completed, it.name, it.completedCount),
               Toast.LENGTH_LONG
             ).show()
           }
-          MENU_DISCARD -> store.discard(progress.sura)
+          MENU_RESET -> store.reset(tracker.id)
+          MENU_RENAME -> ReadingProgressDialogs.askName(
+            activity, R.string.quranapp_tracker_rename, tracker.name
+          ) { name ->
+            store.rename(tracker.id, name)
+            render()
+          }
+          MENU_DELETE -> store.delete(tracker.id)
         }
         render()
         true
@@ -114,6 +125,8 @@ class ReadingProgressHomeSection(
 
   private companion object {
     const val MENU_COMPLETE = 1
-    const val MENU_DISCARD = 2
+    const val MENU_RESET = 2
+    const val MENU_RENAME = 3
+    const val MENU_DELETE = 4
   }
 }

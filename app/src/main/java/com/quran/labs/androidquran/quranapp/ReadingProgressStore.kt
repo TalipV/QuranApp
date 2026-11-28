@@ -1,110 +1,193 @@
 package com.quran.labs.androidquran.quranapp
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * QuranApp: „Laufende Rezitationen“ – gemerkte Stelle je Sure (z. B. Al-Kahf jeden Freitag).
+ * QuranApp: Fortschritts-Tracker – benannte Lesezeichen für Rezitationsrunden
+ * (z. B. „Suratul Kahf“, „Runde mit Freunden“, „Private Khatma“).
  *
- * Pro Sure gibt es höchstens eine laufende Rezitation. Wer eine Stelle markiert, beginnt damit
- * automatisch eine neue Runde, falls keine läuft. Das Abschließen zählt mit, wie oft die Sure
- * schon vollständig gelesen wurde. Gespeichert wird lokal in SharedPreferences.
+ * Jeder Tracker merkt sich eine Stelle (Sure, Aya, Seite), egal in welcher Sure. „Standard“ gibt es
+ * immer; weitere legt der Nutzer im Dialog beim Markieren an. „Runde abschließen“ zählt mit und
+ * leert die Stelle. Gespeichert wird lokal in SharedPreferences (JSON).
  */
-class ReadingProgressStore(context: Context) {
+class ReadingProgressStore(
+  context: Context,
+  /** Name einer Sure, nur für die Übernahme der Daten aus Version 0.2.0 */
+  private val suraName: (Int) -> String,
+) {
 
-  data class Progress(
+  data class Tracker(
+    val id: String,
+    val name: String,
+    val isDefault: Boolean,
+    /** gemerkte Stelle; ayah 0 = keine Stelle gemerkt */
     val sura: Int,
-    /** gemerkte Aya; 0 = gerade keine laufende Rezitation (nur Zähler gespeichert) */
     val ayah: Int,
     val page: Int,
     val startedAt: Long,
     val updatedAt: Long,
-    /** wie oft die Sure mit dieser Funktion schon abgeschlossen wurde */
+    /** wie oft eine Runde mit diesem Tracker abgeschlossen wurde */
     val completedCount: Int,
   ) {
-    val isActive: Boolean get() = ayah > 0
+    val hasPosition: Boolean get() = ayah > 0
   }
 
-  enum class MarkResult { STARTED, UPDATED, COMPLETED }
+  enum class MarkResult { STARTED, UPDATED }
 
   private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  fun get(sura: Int): Progress? = prefs.getString(key(sura), null)?.let { parse(sura, it) }
-
-  /** Alle laufenden Rezitationen, zuletzt bearbeitete zuerst. */
-  fun active(): List<Progress> = prefs.all.keys
-    .filter { it.startsWith(KEY_PREFIX) }
-    .mapNotNull { it.removePrefix(KEY_PREFIX).toIntOrNull() }
-    .mapNotNull { get(it) }
-    .filter { it.isActive }
-    .sortedByDescending { it.updatedAt }
-
-  /**
-   * Merkt [ayah] als aktuelle Stelle. Ist [isLastAyah] gesetzt (letzte Aya der Sure),
-   * gilt die Rezitation als abgeschlossen.
-   */
-  fun mark(sura: Int, ayah: Int, page: Int, isLastAyah: Boolean, now: Long = System.currentTimeMillis()): Pair<MarkResult, Progress> {
-    val old = get(sura)
-    val running = old?.isActive == true
-    if (isLastAyah) {
-      val done = Progress(sura, 0, page, old?.startedAt ?: now, now, (old?.completedCount ?: 0) + 1)
-      save(done)
-      return MarkResult.COMPLETED to done
-    }
-    val progress = Progress(
-      sura = sura,
-      ayah = ayah,
-      page = page,
-      startedAt = if (running) old!!.startedAt else now,
-      updatedAt = now,
-      completedCount = old?.completedCount ?: 0,
-    )
-    save(progress)
-    return (if (running) MarkResult.UPDATED else MarkResult.STARTED) to progress
+  /** Alle Tracker: „Standard“ zuerst, dann zuletzt benutzte. */
+  fun trackers(): List<Tracker> {
+    val all = load()
+    return all.filter { it.isDefault } + all.filterNot { it.isDefault }.sortedByDescending { it.updatedAt }
   }
 
-  /** Laufende Rezitation als gelesen abschließen (zählt mit). */
-  fun complete(sura: Int, now: Long = System.currentTimeMillis()): Progress? {
-    val old = get(sura)?.takeIf { it.isActive } ?: return null
-    val done = old.copy(ayah = 0, updatedAt = now, completedCount = old.completedCount + 1)
-    save(done)
+  /** Tracker mit gemerkter Stelle, zuletzt benutzte zuerst (für die Startseite). */
+  fun withPosition(): List<Tracker> = load().filter { it.hasPosition }.sortedByDescending { it.updatedAt }
+
+  fun create(name: String, now: Long = System.currentTimeMillis()): Tracker {
+    val tracker = Tracker(
+      id = "t$now", name = name.trim(), isDefault = false,
+      sura = 0, ayah = 0, page = 0, startedAt = now, updatedAt = now, completedCount = 0,
+    )
+    save(load() + tracker)
+    return tracker
+  }
+
+  /** Merkt die Stelle im Tracker [id]. STARTED, wenn der Tracker vorher keine Stelle hatte. */
+  fun mark(id: String, sura: Int, ayah: Int, page: Int, now: Long = System.currentTimeMillis()): Pair<MarkResult, Tracker>? {
+    val old = load().firstOrNull { it.id == id } ?: return null
+    val updated = old.copy(
+      sura = sura, ayah = ayah, page = page, updatedAt = now,
+      startedAt = if (old.hasPosition) old.startedAt else now,
+    )
+    replace(updated)
+    return (if (old.hasPosition) MarkResult.UPDATED else MarkResult.STARTED) to updated
+  }
+
+  /** Runde abschließen: zählt mit und leert die Stelle. */
+  fun complete(id: String, now: Long = System.currentTimeMillis()): Tracker? {
+    val old = load().firstOrNull { it.id == id } ?: return null
+    val done = old.copy(sura = 0, ayah = 0, page = 0, updatedAt = now, completedCount = old.completedCount + 1)
+    replace(done)
     return done
   }
 
-  /** Laufende Rezitation verwerfen, ohne sie zu zählen. */
-  fun discard(sura: Int) {
-    val old = get(sura) ?: return
-    if (old.completedCount > 0) save(old.copy(ayah = 0)) else prefs.edit().remove(key(sura)).apply()
+  /** Stelle leeren, ohne zu zählen. */
+  fun reset(id: String) {
+    val old = load().firstOrNull { it.id == id } ?: return
+    replace(old.copy(sura = 0, ayah = 0, page = 0))
   }
 
-  private fun save(p: Progress) {
-    val json = JSONObject()
-      .put("ayah", p.ayah)
-      .put("page", p.page)
-      .put("startedAt", p.startedAt)
-      .put("updatedAt", p.updatedAt)
-      .put("completedCount", p.completedCount)
-    prefs.edit().putString(key(p.sura), json.toString()).apply()
+  fun rename(id: String, name: String) {
+    val old = load().firstOrNull { it.id == id } ?: return
+    if (name.isNotBlank()) replace(old.copy(name = name.trim()))
   }
 
-  private fun parse(sura: Int, raw: String): Progress? = try {
-    val json = JSONObject(raw)
-    Progress(
-      sura = sura,
-      ayah = json.optInt("ayah", 0),
-      page = json.optInt("page", 0),
-      startedAt = json.optLong("startedAt", 0L),
-      updatedAt = json.optLong("updatedAt", 0L),
-      completedCount = json.optInt("completedCount", 0),
-    )
+  /** Löscht den Tracker („Standard“ kann nicht gelöscht werden). */
+  fun delete(id: String) {
+    save(load().filterNot { it.id == id && !it.isDefault })
+  }
+
+  private fun replace(tracker: Tracker) {
+    save(load().map { if (it.id == tracker.id) tracker else it })
+  }
+
+  private fun load(): List<Tracker> {
+    val raw = prefs.getString(KEY_TRACKERS, null)
+    val list = if (raw == null) migrate() else parse(raw)
+    if (list.none { it.isDefault }) {
+      val withDefault = listOf(defaultTracker()) + list
+      save(withDefault)
+      return withDefault
+    }
+    return list
+  }
+
+  private fun defaultTracker() = Tracker(
+    id = DEFAULT_ID, name = DEFAULT_NAME, isDefault = true,
+    sura = 0, ayah = 0, page = 0, startedAt = 0L, updatedAt = 0L, completedCount = 0,
+  )
+
+  /** Version 0.2.0 speicherte je Sure eine Rezitation („sura_N“) – als Tracker mit dem Surennamen übernehmen. */
+  private fun migrate(): List<Tracker> {
+    val migrated = prefs.all.keys
+      .filter { it.startsWith(OLD_PREFIX) }
+      .mapNotNull { key ->
+        val sura = key.removePrefix(OLD_PREFIX).toIntOrNull() ?: return@mapNotNull null
+        val raw = prefs.getString(key, null) ?: return@mapNotNull null
+        val json = try {
+          JSONObject(raw)
+        } catch (e: Exception) {
+          return@mapNotNull null
+        }
+        Tracker(
+          id = "t$sura", name = suraName(sura), isDefault = false,
+          sura = if (json.optInt("ayah", 0) > 0) sura else 0,
+          ayah = json.optInt("ayah", 0),
+          page = json.optInt("page", 0),
+          startedAt = json.optLong("startedAt", 0L),
+          updatedAt = json.optLong("updatedAt", 0L),
+          completedCount = json.optInt("completedCount", 0),
+        )
+      }
+    val list = listOf(defaultTracker()) + migrated
+    val editor = prefs.edit()
+    prefs.all.keys.filter { it.startsWith(OLD_PREFIX) }.forEach { editor.remove(it) }
+    editor.putString(KEY_TRACKERS, toJson(list)).apply()
+    return list
+  }
+
+  private fun save(list: List<Tracker>) {
+    prefs.edit().putString(KEY_TRACKERS, toJson(list)).apply()
+  }
+
+  private fun toJson(list: List<Tracker>): String {
+    val array = JSONArray()
+    list.forEach { t ->
+      array.put(
+        JSONObject()
+          .put("id", t.id)
+          .put("name", t.name)
+          .put("default", t.isDefault)
+          .put("sura", t.sura)
+          .put("ayah", t.ayah)
+          .put("page", t.page)
+          .put("startedAt", t.startedAt)
+          .put("updatedAt", t.updatedAt)
+          .put("completedCount", t.completedCount)
+      )
+    }
+    return array.toString()
+  }
+
+  private fun parse(raw: String): List<Tracker> = try {
+    val array = JSONArray(raw)
+    (0 until array.length()).mapNotNull { i ->
+      val json = array.optJSONObject(i) ?: return@mapNotNull null
+      Tracker(
+        id = json.optString("id"),
+        name = json.optString("name"),
+        isDefault = json.optBoolean("default", false),
+        sura = json.optInt("sura", 0),
+        ayah = json.optInt("ayah", 0),
+        page = json.optInt("page", 0),
+        startedAt = json.optLong("startedAt", 0L),
+        updatedAt = json.optLong("updatedAt", 0L),
+        completedCount = json.optInt("completedCount", 0),
+      )
+    }.filter { it.id.isNotEmpty() }
   } catch (e: Exception) {
-    null
+    emptyList()
   }
 
-  private fun key(sura: Int) = "$KEY_PREFIX$sura"
-
-  private companion object {
-    const val PREFS = "quranapp_reading_progress"
-    const val KEY_PREFIX = "sura_"
+  companion object {
+    const val DEFAULT_NAME = "Standard"
+    private const val DEFAULT_ID = "default"
+    private const val PREFS = "quranapp_reading_progress"
+    private const val KEY_TRACKERS = "trackers"
+    private const val OLD_PREFIX = "sura_"
   }
 }
